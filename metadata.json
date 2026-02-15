@@ -1,0 +1,8 @@
+
+{
+  "name": "CooperVision Optometrist Rewards",
+  "description": "A production-ready platform for optometrists to book CooperVision products, track orders, and earn UPI-redeemable reward points.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
