@@ -16,7 +16,7 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
-  const [view, setView] = useState<'overview' | 'bookings' | 'products' | 'withdrawals'>('overview');
+  const [view, setView] = useState<'overview' | 'bookings' | 'products' | 'withdrawals' | 'deployment'>('overview');
 
   const stats = [
     { label: 'Pending Bookings', value: props.bookings.filter(b => b.status === 'waiting').length, color: 'bg-amber-100 text-amber-700' },
@@ -38,6 +38,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <SidebarLink icon={<ICONS.History className="w-5 h-5"/>} label="Bookings" active={view === 'bookings'} onClick={() => setView('bookings')} />
           <SidebarLink icon={<ICONS.Booking className="w-5 h-5"/>} label="Products" active={view === 'products'} onClick={() => setView('products')} />
           <SidebarLink icon={<ICONS.Rewards className="w-5 h-5"/>} label="Withdrawals" active={view === 'withdrawals'} onClick={() => setView('withdrawals')} />
+          <div className="pt-4 mt-4 border-t border-slate-100">
+            <SidebarLink icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>} label="Deployment" active={view === 'deployment'} onClick={() => setView('deployment')} />
+          </div>
         </nav>
 
         <div className="pt-6 border-t">
@@ -68,6 +71,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         {view === 'bookings' && <BookingsTable bookings={props.bookings} setBookings={props.setBookings} />}
         {view === 'products' && <ProductManager products={props.products} setProducts={props.setProducts} />}
         {view === 'withdrawals' && <WithdrawalsTable withdrawals={props.withdrawals} setWithdrawals={props.setWithdrawals} />}
+        {view === 'deployment' && <DeploymentView />}
       </main>
     </div>
   );
@@ -80,6 +84,51 @@ const SidebarLink = ({ icon, label, active, onClick }: any) => (
   </button>
 );
 
+const DeploymentView = () => (
+  <div className="max-w-4xl space-y-8">
+    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+      <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <span className="w-8 h-8 rounded-lg bg-blue-100 text-[#005696] flex items-center justify-center text-sm">1</span>
+        Cloud Hosting (Public Link)
+      </h3>
+      <div className="space-y-4 text-sm text-slate-600">
+        <p>To make this link accessible to your 10 users:</p>
+        <ol className="list-decimal list-inside space-y-2 ml-4">
+          <li>Create a free account at <b>Vercel.com</b> or <b>Netlify.com</b>.</li>
+          <li>Connect your GitHub repository containing these files.</li>
+          <li>It will automatically give you a link like <code className="bg-slate-100 px-1 rounded text-[#005696]">https://coopervision-rewards.vercel.app</code>.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+      <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <span className="w-8 h-8 rounded-lg bg-blue-100 text-[#005696] flex items-center justify-center text-sm">2</span>
+        WhatsApp Automation Steps
+      </h3>
+      <div className="space-y-4 text-sm text-slate-600">
+        <p>To automate WhatsApp alerts to your number:</p>
+        <ul className="list-disc list-inside space-y-2 ml-4">
+          <li>Register at <b>developers.facebook.com</b>.</li>
+          <li>Create a "Business App" and enable the <b>WhatsApp Cloud API</b>.</li>
+          <li>Add your phone number (vk_nalla's) as the "Test Number" or "Recipient".</li>
+          <li>Get your <b>Permanent Access Token</b>.</li>
+          <li>Update the <code className="bg-slate-100 px-1 rounded text-[#005696]">notificationService.ts</code> file with your API credentials.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div className="bg-[#005696] p-8 rounded-3xl text-white">
+      <h3 className="font-bold mb-4">Final Production Recommendation</h3>
+      <p className="text-sm opacity-90 leading-relaxed">
+        For a production app, do not store users in React state (which resets on refresh). 
+        Setup a <b>Supabase</b> project. It provides built-in OTP login, Secure Row Level Security, and image storage for your bills.
+      </p>
+    </div>
+  </div>
+);
+
+// ... (Rest of the existing components: OverviewView, BookingsTable, ProductManager, WithdrawalsTable)
 const OverviewView = ({ stats, bookings }: any) => {
   const chartData = [
     { name: 'Mon', bookings: 12 },
