@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { User } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -11,6 +12,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAdminQuickLogin = () => {
     onLogin({
@@ -26,28 +28,34 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulation
-    setTimeout(() => {
-      if (email === 'admin@coopervision.com') {
-        handleAdminQuickLogin();
-      } else {
-        onLogin({
-          id: 'user-1',
-          full_name: 'Dr. John Doe',
-          email: email || 'dr.john@example.com',
-          phone: '9876543210',
-          shop_name: 'EyeCare Clinic',
-          city: 'Pune',
-          referral_code: 'OPT-XYZ123',
-          role: 'optometrist',
-          created_at: new Date().toISOString()
-        });
+    setError(null);
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError) throw profileError;
+        onLogin(profile);
       }
+    } catch (err: any) {
+      setError(err.message || 'Invalid login credentials');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -62,14 +70,20 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
         </div>
 
         <div className="bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-center">
+              <p className="text-xs text-red-600 font-bold">{error}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email or Mobile</label>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</label>
               <input 
-                type="text" 
+                type="email" 
                 required
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#005696] focus:border-transparent outline-none transition-all"
-                placeholder="e.g. 9876543210"
+                placeholder="e.g. user@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -95,7 +109,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
 
             <button 
               disabled={isLoading}
-              className="w-full py-4 bg-[#005696] text-white rounded-xl font-bold shadow-lg shadow-blue-900/10 hover:bg-blue-800 transition-all flex items-center justify-center gap-2"
+              className={`w-full py-4 bg-[#005696] text-white rounded-xl font-bold shadow-lg shadow-blue-900/10 hover:bg-blue-800 transition-all flex items-center justify-center gap-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {isLoading ? 'Verifying...' : 'Sign In'}
             </button>
