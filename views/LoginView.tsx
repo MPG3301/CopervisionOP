@@ -1,5 +1,6 @@
 
-import { useState } from 'react';
+// Import React to support React.FC and React.FormEvent types
+import React, { useState } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 

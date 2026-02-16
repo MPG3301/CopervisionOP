@@ -39,8 +39,8 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
       const { error } = await supabase.from('bookings').insert([newBooking]);
       if (error) throw error;
 
-      await notificationService.sendBookingEmail(newBooking as Booking, user);
-      await notificationService.sendWhatsAppAlert(newBooking as Booking, user);
+      // Optional: notificationService
+      // await notificationService.sendBookingEmail(newBooking as Booking, user);
 
       onBookingSubmit(newBooking as Booking);
       setIsSubmitting(false);
@@ -53,93 +53,81 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
 
   return (
     <div className="p-6">
-      <h2 className="text-xl font-bold text-slate-900 mb-6">New Order</h2>
+      <header className="mb-8">
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Create Order</h2>
+        <p className="text-slate-400 text-sm font-medium">Add products to your waitlist for points</p>
+      </header>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Brand</label>
-            <input 
-              type="text" 
-              disabled 
-              value="CooperVision" 
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-400" 
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-[#005696] uppercase tracking-widest">Select Product</label>
+        <div className="space-y-6 bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">1. Product Selection</label>
             <select 
               required
-              className="w-full px-4 py-3 bg-white border-2 border-slate-100 rounded-xl outline-none focus:border-[#005696] font-medium text-slate-800"
+              className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none focus:border-[#005696] focus:bg-white transition-all font-bold text-slate-800 appearance-none"
               value={productId}
               onChange={(e) => setProductId(e.target.value)}
             >
-              <option value="">Choose a product...</option>
+              <option value="">Select CooperVision Product...</option>
               {products.filter(p => p.active).map(p => (
-                <option key={p.id} value={p.id}>{p.product_name} ({p.points_per_unit} pts)</option>
+                <option key={p.id} value={p.id}>{p.product_name} — {p.points_per_unit} pts/unit</option>
               ))}
             </select>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Order Quantity</label>
-            <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+            <label className="text-[10px] font-black text-[#005696] uppercase tracking-widest ml-1">2. Quantity ordered</label>
+            <div className="flex items-center gap-4 bg-[#005696]/5 p-3 rounded-[24px] border border-[#005696]/10">
               <button 
                 type="button" 
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="w-14 h-14 flex items-center justify-center bg-white rounded-xl shadow-sm border border-slate-100 text-2xl font-black text-slate-800 active:scale-95 transition-transform"
+                className="w-16 h-16 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-slate-100 text-3xl font-black text-[#005696] active:scale-90 transition-transform"
               >–</button>
-              <div className="flex-1 text-center">
-                <span className="block text-3xl font-black text-[#005696]">{quantity}</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Units</span>
+              
+              <div className="flex-1 text-center py-2">
+                <span className="block text-5xl font-black text-[#005696] tracking-tighter">{quantity}</span>
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Units Selected</span>
               </div>
+
               <button 
                 type="button" 
                 onClick={() => setQuantity(quantity + 1)}
-                className="w-14 h-14 flex items-center justify-center bg-white rounded-xl shadow-sm border border-slate-100 text-2xl font-black text-slate-800 active:scale-95 transition-transform"
+                className="w-16 h-16 flex items-center justify-center bg-[#005696] rounded-2xl shadow-lg shadow-blue-900/20 text-3xl font-black text-white active:scale-90 transition-transform"
               >+</button>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proof of Purchase (Optional)</label>
-            <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
-              <input 
-                type="file" 
-                className="absolute inset-0 opacity-0 cursor-pointer" 
-                onChange={(e) => setImage(e.target.files?.[0] || null)}
-              />
-              {image ? (
-                <div className="text-center">
-                   <p className="text-sm font-bold text-emerald-600">{image.name}</p>
-                   <p className="text-[10px] text-slate-400 mt-1">Click to change</p>
-                </div>
-              ) : (
-                <>
-                  <svg className="w-10 h-10 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Capture Bill</p>
-                </>
-              )}
-            </div>
-          </div>
+        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
+           <div className="flex justify-between items-center px-2">
+             <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimated Earn</span>
+                <span className="text-2xl font-black text-emerald-600">+{productId ? (products.find(p => p.id === productId)?.points_per_unit || 0) * quantity : 0} pts</span>
+             </div>
+             <div className="text-right">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Value Approx.</span>
+                <span className="text-lg font-bold text-slate-900 block">₹{productId ? ((products.find(p => p.id === productId)?.points_per_unit || 0) * quantity / 10).toFixed(0) : 0}</span>
+             </div>
+           </div>
         </div>
 
-        <div className="p-2">
+        <div className="pt-4 px-2">
           <button 
             type="submit"
-            disabled={isSubmitting}
-            className={`w-full py-5 rounded-2xl font-black text-lg text-white shadow-xl shadow-blue-900/20 transition-all active:scale-[0.98] ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#005696] hover:bg-blue-800'}`}
+            disabled={isSubmitting || !productId}
+            className={`w-full py-6 rounded-[24px] font-black text-xl text-white shadow-2xl shadow-blue-900/30 transition-all active:scale-[0.97] flex items-center justify-center gap-3 ${isSubmitting || !productId ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-[#005696] hover:bg-blue-800'}`}
           >
-            {isSubmitting ? 'Submitting Order...' : 'Submit to Waitlist'}
+            {isSubmitting ? (
+              <div className="animate-spin h-6 w-6 border-4 border-white/30 border-t-white rounded-full"></div>
+            ) : (
+              <>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"/></svg>
+                SUBMIT TO WAITLIST
+              </>
+            )}
           </button>
-          <p className="text-center text-[10px] text-slate-400 mt-4 px-4 font-medium uppercase tracking-widest">
-            Points will be credited after admin approval
+          <p className="text-center text-[10px] text-slate-400 mt-6 px-6 font-bold uppercase tracking-widest leading-relaxed">
+            Order will appear in your waitlist immediately. Points credit after admin verification.
           </p>
         </div>
       </form>
