@@ -1,9 +1,8 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { User, Booking, Product, Withdrawal, BookingStatus, WithdrawalStatus } from '../../types';
 import { ICONS } from '../../constants';
 import { supabase } from '../../lib/supabase';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AdminDashboardProps {
   user: User;
@@ -20,334 +19,226 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const [view, setView] = useState<'overview' | 'bookings' | 'products' | 'withdrawals'>('overview');
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Local form state for real-time percentage preview
+  const [formPrice, setFormPrice] = useState(2000);
+  const [formPct, setFormPct] = useState(5);
 
-  // Stats Logic
-  const stats = [
-    { label: 'Pending Bookings', value: props.bookings.filter(b => b.status === 'waiting').length, color: 'text-amber-600' },
-    { label: 'Approved Today', value: props.bookings.filter(b => b.status === 'approved' && new Date(b.created_at).toDateString() === new Date().toDateString()).length, color: 'text-emerald-600' },
-    { label: 'Unpaid Rewards', value: props.withdrawals.filter(w => w.status === 'pending').length, color: 'text-red-600' },
-    { label: 'Active Partners', value: new Set(props.bookings.map(b => b.user_id)).size, color: 'text-blue-600' }
-  ];
-
-  // Booking Approval
   const handleUpdateBookingStatus = async (id: string, status: BookingStatus) => {
     setIsUpdating(id);
-    try {
-      const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
-      if (error) throw error;
-      props.setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
-    } catch (err: any) {
-      alert("Error: " + err.message);
-    } finally {
-      setIsUpdating(null);
-    }
-  };
-
-  // Withdrawal Approval
-  const handleUpdateWithdrawalStatus = async (id: string, status: WithdrawalStatus) => {
-    setIsUpdating(id);
-    try {
-      const { error } = await supabase.from('withdrawals').update({ status }).eq('id', id);
-      if (error) throw error;
-      props.setWithdrawals(prev => prev.map(w => w.id === id ? { ...w, status } : w));
-    } catch (err: any) {
-      alert("Error: " + err.message);
-    } finally {
-      setIsUpdating(null);
-    }
-  };
-
-  // CSV Bulk Upload
-  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      const rows = text.split('\n').slice(1); // Skip header
-      const newProducts = rows.map(row => {
-        const [name, points] = row.split(',');
-        if (!name || !points) return null;
-        return {
-          product_name: name.trim(),
-          points_per_unit: parseInt(points.trim()),
-          brand: 'CooperVision',
-          active: true
-        };
-      }).filter(Boolean);
-
-      if (newProducts.length > 0) {
-        const { data, error } = await supabase.from('products').insert(newProducts).select();
-        if (error) alert("Upload failed: " + error.message);
-        else {
-          props.setProducts(prev => [...prev, ...data]);
-          alert(`Successfully uploaded ${data.length} products!`);
-        }
-      }
-    };
-    reader.readAsText(file);
+    const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
+    if (!error) props.setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+    setIsUpdating(null);
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-      <aside className="w-64 bg-white border-r flex flex-col p-6 space-y-8">
+    <div className="flex flex-col h-screen bg-slate-50 max-w-md mx-auto relative overflow-hidden font-sans border-x">
+      <header className="bg-white px-6 py-4 border-b flex justify-between items-center sticky top-0 z-20">
         <div>
-          <h1 className="text-2xl font-black text-[#005696] tracking-tighter">ADMIN<br/><span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Rewards Engine</span></h1>
+          <h1 className="text-xl font-black text-slate-900 leading-none">Admin</h1>
+          <p className="text-[10px] font-bold text-[#005696] uppercase tracking-tighter">Portal Controller</p>
         </div>
-        
-        <nav className="flex-1 space-y-1">
-          <SidebarLink icon={<ICONS.Dashboard className="w-5 h-5"/>} label="Overview" active={view === 'overview'} onClick={() => setView('overview')} />
-          <SidebarLink icon={<ICONS.History className="w-5 h-5"/>} label="Waitlist (Bookings)" active={view === 'bookings'} onClick={() => setView('bookings')} />
-          <SidebarLink icon={<ICONS.Booking className="w-5 h-5"/>} label="Product Inventory" active={view === 'products'} onClick={() => setView('products')} />
-          <SidebarLink icon={<ICONS.Rewards className="w-5 h-5"/>} label="Redemption Desk" active={view === 'withdrawals'} onClick={() => setView('withdrawals')} />
-        </nav>
+        <button onClick={props.onLogout} className="text-[10px] font-black bg-slate-100 px-3 py-1.5 rounded-lg uppercase tracking-widest text-slate-500">Exit</button>
+      </header>
 
-        <div className="pt-6 border-t">
-          <button onClick={props.onLogout} className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-red-100 transition-colors">
-            <ICONS.X className="w-4 h-4" /> Sign Out
-          </button>
-        </div>
-      </aside>
-
-      <main className="flex-1 overflow-y-auto p-10">
+      <main className="flex-1 overflow-y-auto pb-24">
         {view === 'overview' && (
-          <div className="space-y-10">
-            <div className="grid grid-cols-4 gap-6">
-              {stats.map(s => (
-                <div key={s.label} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm transition-transform hover:scale-[1.02]">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
-                  <p className={`text-4xl font-black ${s.color}`}>{s.value}</p>
-                </div>
-              ))}
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+               <AdminStatCard label="Pending Orders" value={props.bookings.filter(b => b.status === 'waiting').length} color="amber" onClick={() => setView('bookings')} />
+               <AdminStatCard label="Payout Tasks" value={props.withdrawals.filter(w => w.status === 'pending').length} color="red" onClick={() => setView('withdrawals')} />
+            </div>
+
+            <div className="bg-[#005696] p-8 rounded-[40px] text-white shadow-2xl shadow-blue-900/30">
+               <h3 className="text-2xl font-black tracking-tighter">Inventory Control</h3>
+               <p className="text-xs opacity-70 mt-1 mb-6">Set points reward (1% - 8%) and stock levels</p>
+               <button onClick={() => setView('products')} className="w-full py-4 bg-white text-[#005696] rounded-2xl font-black text-sm uppercase tracking-widest">Update Catalog</button>
             </div>
             
-            <div className="grid grid-cols-3 gap-8">
-               <div className="col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm h-96">
-                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
-                   <div className="w-2 h-2 rounded-full bg-blue-500"></div> Performance Analytics
-                </h3>
-                <ResponsiveContainer width="100%" height="90%">
-                  <BarChart data={[{name:'Mon',v:42},{name:'Tue',v:78},{name:'Wed',v:51},{name:'Thu',v:96},{name:'Fri',v:124}]}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <Bar dataKey="v" fill="#005696" radius={[6,6,0,0]} barSize={40} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} />
-                    <Tooltip cursor={{fill: '#f8fafc'}} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="bg-[#005696] text-white p-8 rounded-3xl shadow-xl shadow-blue-900/20">
-                <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
-                <div className="space-y-4">
-                  <button onClick={() => setView('products')} className="w-full py-4 bg-white/10 rounded-2xl text-sm font-bold border border-white/20 hover:bg-white/20 transition-all text-left px-5">Add New Product</button>
-                  <button onClick={() => setView('withdrawals')} className="w-full py-4 bg-white/10 rounded-2xl text-sm font-bold border border-white/20 hover:bg-white/20 transition-all text-left px-5">Review Redemptions</button>
-                  <button onClick={() => setView('bookings')} className="w-full py-4 bg-white/10 rounded-2xl text-sm font-bold border border-white/20 hover:bg-white/20 transition-all text-left px-5">Bulk Approve Waitlist</button>
-                </div>
-              </div>
+            <div className="bg-white p-6 rounded-[32px] border border-slate-100">
+               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Latest Waitlist Entry</h4>
+               {props.bookings.filter(b => b.status === 'waiting').length > 0 ? (
+                 <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
+                    <p className="text-xs font-black text-slate-800">{props.bookings.filter(b => b.status === 'waiting')[0].product_name}</p>
+                    <button onClick={() => setView('bookings')} className="text-[9px] font-black text-[#005696] underline">VIEW ALL</button>
+                 </div>
+               ) : (
+                 <p className="text-xs text-slate-400 font-medium italic">Everything is processed! 🎉</p>
+               )}
             </div>
           </div>
         )}
 
         {view === 'bookings' && (
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Order Waitlist</h3>
-              <span className="text-xs font-bold text-slate-400">Total Pending: {props.bookings.filter(b => b.status === 'waiting').length}</span>
-            </div>
-            <table className="w-full text-left">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Partner Details</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Product Information</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Qty</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Points</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {props.bookings.length === 0 ? (
-                  <tr><td colSpan={5} className="py-20 text-center text-slate-400 italic">No bookings found in waitlist.</td></tr>
-                ) : (
-                  props.bookings.map(b => (
-                    <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-5">
-                        <p className="text-sm font-black text-slate-900">{b.optometrist_name || 'Optometrist'}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">ID: {b.id.substr(0,8)}</p>
-                      </td>
-                      <td className="px-6 py-5">
-                        <p className="text-sm font-bold text-[#005696]">{b.product_name}</p>
-                        <p className="text-[10px] font-medium text-slate-400">{new Date(b.created_at).toLocaleString()}</p>
-                      </td>
-                      <td className="px-6 py-5 text-center font-black text-slate-600">{b.quantity}</td>
-                      <td className="px-6 py-5 text-right font-black text-emerald-600">+{b.points_earned}</td>
-                      <td className="px-6 py-5">
-                        <div className="flex justify-center gap-2">
-                          {b.status === 'waiting' ? (
-                            <>
-                              <button 
-                                disabled={isUpdating === b.id}
-                                onClick={() => handleUpdateBookingStatus(b.id, 'approved')} 
-                                className="w-10 h-10 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-full hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
-                              ><ICONS.Check className="w-5 h-5"/></button>
-                              <button 
-                                disabled={isUpdating === b.id}
-                                onClick={() => handleUpdateBookingStatus(b.id, 'rejected')} 
-                                className="w-10 h-10 flex items-center justify-center bg-red-100 text-red-600 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                              ><ICONS.X className="w-5 h-5"/></button>
-                            </>
-                          ) : (
-                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${b.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{b.status}</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="p-4 space-y-3">
+             <h2 className="text-lg font-black text-slate-900 px-2">Waitlist Reviews</h2>
+             {props.bookings.filter(b => b.status === 'waiting').length === 0 ? (
+               <div className="text-center py-20 text-slate-400 font-bold italic">No new entries in waitlist.</div>
+             ) : (
+               props.bookings.filter(b => b.status === 'waiting').map(b => (
+                 <div key={b.id} className="bg-white p-5 rounded-[32px] border-2 border-amber-100 shadow-sm animate-pulse-subtle">
+                   <div className="flex justify-between items-start mb-3">
+                     <div>
+                       <p className="text-xs font-black text-slate-900 uppercase">{b.product_name}</p>
+                       <p className="text-[10px] font-bold text-[#005696]">{b.optometrist_name}</p>
+                     </div>
+                     <span className="text-lg font-black text-emerald-600">+{b.points_earned}</span>
+                   </div>
+                   <div className="flex gap-2 pt-3 border-t">
+                      <button onClick={() => handleUpdateBookingStatus(b.id, 'approved')} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest">Approve</button>
+                      <button onClick={() => handleUpdateBookingStatus(b.id, 'rejected')} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest">Reject</button>
+                   </div>
+                 </div>
+               ))
+             )}
           </div>
         )}
 
         {view === 'products' && (
-          <div className="space-y-8">
-            <div className="flex justify-between items-center">
-              <h3 className="text-2xl font-black text-slate-800">Product Inventory</h3>
-              <div className="flex gap-4">
-                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleCsvUpload} />
-                <button onClick={() => fileInputRef.current?.click()} className="px-6 py-3 bg-white border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-600 hover:border-[#005696] hover:text-[#005696] transition-all flex items-center gap-2">
-                   CSV Bulk Upload
-                </button>
-                <button onClick={() => setShowProductForm(true)} className="px-6 py-3 bg-[#005696] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-900/10 hover:bg-blue-800 transition-all">
-                   + Add Product
-                </button>
+          <div className="p-4 space-y-4">
+            <div className="flex justify-between items-center px-2">
+              <h2 className="text-lg font-black text-slate-900">Inventory & %</h2>
+              <button onClick={() => setShowProductForm(true)} className="px-5 py-2.5 bg-[#005696] text-white rounded-xl font-black text-[10px] uppercase tracking-widest">+ Add</button>
+            </div>
+            
+            {props.products.map(p => (
+              <div key={p.id} className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm flex flex-col gap-3">
+                <div className="flex justify-between">
+                  <p className="font-black text-slate-900 text-sm">{p.product_name}</p>
+                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase">{p.reward_percentage}% Reward</span>
+                </div>
+                <div className="flex justify-between items-end bg-slate-50 p-4 rounded-2xl">
+                   <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Price</p>
+                      <p className="text-base font-black text-slate-900">₹{p.base_price}</p>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Points/Unit</p>
+                      <p className="text-base font-black text-[#005696]">{Math.floor(p.base_price * p.reward_percentage / 100)}</p>
+                   </div>
+                </div>
+                <div className="flex justify-between items-center px-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Stock: <b>{p.stock_quantity || '0'} units</b></span>
+                  <button className="text-[9px] font-black text-slate-300 uppercase tracking-widest hover:text-[#005696]">Edit Item</button>
+                </div>
               </div>
-            </div>
-
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm">
-               <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b">
-                  <tr>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Brand</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Product Name</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Points/Unit</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {props.products.map(p => (
-                    <tr key={p.id}>
-                      <td className="px-6 py-4 font-bold text-slate-400 text-xs">CooperVision</td>
-                      <td className="px-6 py-4 font-bold text-slate-800">{p.product_name}</td>
-                      <td className="px-6 py-4 text-right font-black text-[#005696]">{p.points_per_unit}</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase">Active</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            ))}
           </div>
         )}
 
         {view === 'withdrawals' && (
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b">
-              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Point Redemptions</h3>
-            </div>
-            <table className="w-full text-left">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Partner</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">UPI ID (Destination)</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Points</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount (INR)</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {props.withdrawals.length === 0 ? (
-                  <tr><td colSpan={5} className="py-20 text-center text-slate-400 italic font-medium">No redemption requests yet.</td></tr>
-                ) : (
-                  props.withdrawals.map(w => (
-                    <tr key={w.id}>
-                      <td className="px-6 py-5 font-bold text-slate-900">Partner ID: {w.user_id.substr(0,8)}</td>
-                      <td className="px-6 py-5 text-sm font-black text-[#005696] underline underline-offset-4">{w.upi_id}</td>
-                      <td className="px-6 py-5 text-right font-bold text-slate-500">{w.points.toLocaleString()}</td>
-                      <td className="px-6 py-5 text-right font-black text-slate-900">₹{w.amount.toLocaleString()}</td>
-                      <td className="px-6 py-5 text-center">
-                         {w.status === 'pending' ? (
-                            <div className="flex justify-center gap-2">
-                               <button 
-                                  disabled={isUpdating === w.id}
-                                  onClick={() => handleUpdateWithdrawalStatus(w.id, 'approved')}
-                                  className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20"
-                               >PAY NOW</button>
-                               <button 
-                                  disabled={isUpdating === w.id}
-                                  onClick={() => handleUpdateWithdrawalStatus(w.id, 'rejected')}
-                                  className="px-4 py-2 bg-slate-100 text-slate-600 text-[10px] font-black rounded-xl hover:bg-slate-200 transition-colors"
-                               >DECLINE</button>
-                            </div>
-                         ) : (
-                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${w.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{w.status}</span>
-                         )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="p-4 space-y-4">
+             <h2 className="text-lg font-black text-slate-900 px-2">Pending Payouts</h2>
+             {props.withdrawals.filter(w => w.status === 'pending').map(w => (
+                <div key={w.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
+                   <div className="flex justify-between items-center">
+                      <div>
+                         <p className="text-sm font-black text-slate-900">₹{w.amount}</p>
+                         <p className="text-[10px] font-bold text-[#005696]">{w.upi_id}</p>
+                      </div>
+                      <span className="text-[9px] font-black bg-slate-100 px-3 py-1.5 rounded-full uppercase">{w.points} Pts</span>
+                   </div>
+                   <button onClick={async () => {
+                     await supabase.from('withdrawals').update({ status: 'approved' }).eq('id', w.id);
+                     props.setWithdrawals(prev => prev.map(item => item.id === w.id ? { ...item, status: 'approved' } : item));
+                   }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200">MARK AS PAID</button>
+                </div>
+             ))}
           </div>
         )}
       </main>
 
-      {/* Modal for adding product */}
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t flex justify-around p-3 z-30 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <button onClick={() => setView('overview')} className={`flex flex-col items-center gap-1 ${view === 'overview' ? 'text-[#005696]' : 'text-slate-300'}`}><ICONS.Dashboard className="w-6 h-6"/><span className="text-[8px] font-black uppercase">Home</span></button>
+        <button onClick={() => setView('bookings')} className={`flex flex-col items-center gap-1 ${view === 'bookings' ? 'text-amber-500' : 'text-slate-300'}`}><ICONS.History className="w-6 h-6"/><span className="text-[8px] font-black uppercase tracking-tighter">Waitlist</span></button>
+        <button onClick={() => setView('products')} className={`flex flex-col items-center gap-1 ${view === 'products' ? 'text-[#005696]' : 'text-slate-300'}`}><ICONS.Booking className="w-6 h-6"/><span className="text-[8px] font-black uppercase">Catalog</span></button>
+        <button onClick={() => setView('withdrawals')} className={`flex flex-col items-center gap-1 ${view === 'withdrawals' ? 'text-red-500' : 'text-slate-300'}`}><ICONS.Rewards className="w-6 h-6"/><span className="text-[8px] font-black uppercase">Payouts</span></button>
+      </nav>
+
       {showProductForm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-white rounded-[40px] p-10 w-full max-w-md shadow-2xl space-y-8 animate-in zoom-in-95 duration-200">
-            <div className="text-center">
-              <h3 className="text-2xl font-black text-slate-900">Add New Product</h3>
-              <p className="text-sm text-slate-500 mt-1">Populate the CooperVision inventory</p>
-            </div>
-            
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              const name = (e.target as any).pname.value;
-              const points = (e.target as any).ppoints.value;
-              const { data, error } = await supabase.from('products').insert([{ product_name: name, points_per_unit: points, brand: 'CooperVision' }]).select();
-              if (error) alert(error.message);
-              else {
-                props.setProducts([...props.products, data[0]]);
-                setShowProductForm(false);
-              }
-            }} className="space-y-5">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Product Title</label>
-                <input name="pname" required placeholder="e.g. Biofinity (12 Lenses)" className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-[#005696] outline-none font-bold" />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end justify-center">
+           <div className="bg-white w-full rounded-t-[40px] p-8 pb-12 space-y-6 animate-slide-up shadow-2xl">
+              <div className="flex justify-between items-center">
+                 <h3 className="text-xl font-black text-slate-900">Add Product</h3>
+                 <button onClick={() => setShowProductForm(false)} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500"><ICONS.X className="w-4 h-4" /></button>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points Value (per unit)</label>
-                <input name="ppoints" type="number" required placeholder="e.g. 1000" className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-[#005696] outline-none font-bold" />
-              </div>
-              
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setShowProductForm(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all">Cancel</button>
-                <button type="submit" className="flex-2 py-4 bg-[#005696] text-white font-black rounded-2xl hover:bg-blue-800 transition-all px-10">Save Product</button>
-              </div>
-            </form>
-          </div>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const target = e.target as any;
+                const points = Math.floor(formPrice * formPct / 100);
+                const { data, error } = await supabase.from('products').insert([{ 
+                  product_name: target.pname.value,
+                  base_price: formPrice,
+                  reward_percentage: formPct,
+                  points_per_unit: points,
+                  stock_quantity: parseInt(target.pstock.value),
+                  brand: 'CooperVision',
+                  active: true
+                }]).select();
+                if (!error) {
+                  props.setProducts(prev => [...prev, data[0]]);
+                  setShowProductForm(false);
+                }
+              }} className="space-y-6">
+                 <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Product Title</label>
+                    <input name="pname" required placeholder="e.g. MyDay (30 Lenses)" className="w-full px-5 py-4 bg-slate-50 rounded-2xl font-bold" />
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Base Price (₹)</label>
+                       <input type="number" required value={formPrice} onChange={e => setFormPrice(parseInt(e.target.value))} className="w-full px-5 py-4 bg-slate-50 rounded-2xl font-black" />
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Initial Stock</label>
+                       <input name="pstock" type="number" defaultValue="100" className="w-full px-5 py-4 bg-slate-50 rounded-2xl font-black" />
+                    </div>
+                 </div>
+
+                 <div className="space-y-2 p-5 bg-[#005696]/5 rounded-3xl border-2 border-dashed border-[#005696]/20">
+                    <div className="flex justify-between items-center px-1 mb-2">
+                       <label className="text-[10px] font-black text-[#005696] uppercase tracking-widest">Reward Setting</label>
+                       <span className="text-lg font-black text-[#005696]">{formPct}%</span>
+                    </div>
+                    {/* PERCENTAGE BAR SLIDER */}
+                    <input 
+                      type="range" min="1" max="8" step="1" 
+                      value={formPct} onChange={e => setFormPct(parseInt(e.target.value))}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#005696]"
+                    />
+                    <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase mt-1">
+                       <span>1% Basic</span>
+                       <span>8% Premium</span>
+                    </div>
+                    <div className="mt-4 text-center">
+                       <p className="text-[10px] font-bold text-slate-500">Points earned per unit sold:</p>
+                       <p className="text-2xl font-black text-[#005696]">{Math.floor(formPrice * formPct / 100)} pts</p>
+                    </div>
+                 </div>
+
+                 <button type="submit" className="w-full py-5 bg-[#005696] text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-900/20">Create Product</button>
+              </form>
+           </div>
         </div>
       )}
     </div>
   );
 };
 
-const SidebarLink = ({ icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all ${active ? 'bg-[#005696] text-white shadow-lg shadow-blue-900/10' : 'text-slate-400 hover:bg-slate-100'}`}>
-    {icon} {label}
-  </button>
-);
+const AdminStatCard = ({ label, value, color, onClick }: any) => {
+  const colors: Record<string, string> = {
+    amber: 'bg-amber-50 text-amber-600 border-amber-100',
+    red: 'bg-red-50 text-red-600 border-red-100',
+    blue: 'bg-blue-50 text-blue-600 border-blue-100'
+  };
+  return (
+    <button onClick={onClick} className={`p-5 rounded-[32px] border ${colors[color]} text-left space-y-1 shadow-sm transition-transform active:scale-95`}>
+       <p className="text-[9px] font-black uppercase tracking-widest opacity-70">{label}</p>
+       <p className="text-3xl font-black">{value}</p>
+    </button>
+  );
+};
 
 export default AdminDashboard;

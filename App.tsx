@@ -9,28 +9,8 @@ import MyBookings from './views/MyBookings';
 import Rewards from './views/Rewards';
 import AdminDashboard from './views/admin/AdminDashboard';
 
-// Mock users for bypass mode
-const MOCK_OPTOMETRIST: User = {
-  id: '00000000-0000-0000-0000-000000000000', // Test UUID
-  full_name: 'Dr. Test Optometrist',
-  email: 'test@cv.com',
-  phone: '9876543210',
-  shop_name: 'Test Vision Clinic',
-  city: 'Mumbai',
-  referral_code: 'TEST-OPT-123',
-  role: 'optometrist',
-  created_at: new Date().toISOString()
-};
-
-const MOCK_ADMIN: User = {
-  ...MOCK_OPTOMETRIST,
-  full_name: 'Admin Controller',
-  role: 'admin'
-};
-
 const App: React.FC = () => {
-  // Start with the mock optometrist by default to bypass login
-  const [user, setUser] = useState<User | null>(MOCK_OPTOMETRIST);
+  const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'new-booking' | 'history' | 'rewards'>('dashboard');
   const [loading, setLoading] = useState(false);
   
@@ -38,19 +18,21 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
 
+  // Simple detail input form for bypass
+  const [simpleName, setSimpleName] = useState('');
+  const [simpleShop, setSimpleShop] = useState('');
+
   const fetchData = async (currentUser: User) => {
     // Fetch Products
-    const { data: prods } = await supabase.from('products').select('*').eq('active', true);
+    const { data: prods } = await supabase.from('products').select('*').order('product_name');
     if (prods) setProducts(prods);
 
-    // Fetch Bookings
+    // Fetch ALL Bookings if admin, else only personal
     const query = supabase.from('bookings').select('*').order('created_at', { ascending: false });
     if (currentUser.role !== 'admin') {
-      // In bypass mode, we might want to see all bookings for testing, 
-      // or we can filter by the mock ID
       query.eq('user_id', currentUser.id);
     }
-    const { data: bks } = await query;
+    const { data: bks, error } = await query;
     if (bks) setBookings(bks);
 
     // Fetch Withdrawals
@@ -68,43 +50,79 @@ const App: React.FC = () => {
     }
   }, [user]);
 
-  // Set up Realtime Subscription
+  // Real-time listener for updates
   useEffect(() => {
     if (!user) return;
     const channel = supabase.channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => fetchData(user))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawals' }, () => fetchData(user))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData(user))
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  const toggleRole = () => {
-    setUser(prev => prev?.role === 'admin' ? MOCK_OPTOMETRIST : MOCK_ADMIN);
-    setActiveTab('dashboard');
+  const handleSimpleLogin = (role: 'optometrist' | 'admin') => {
+    const mockUser: User = {
+      id: role === 'admin' ? 'admin-bypass-id' : `user-${Date.now()}`,
+      full_name: simpleName || (role === 'admin' ? 'Super Admin' : 'Dr. Test Partner'),
+      email: `${role}@coopervision.com`,
+      phone: '9876543210',
+      shop_name: simpleShop || 'CooperVision Clinic',
+      city: 'Mumbai',
+      referral_code: `CV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      role: role,
+      created_at: new Date().toISOString()
+    };
+    setUser(mockUser);
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005696]"></div></div>;
 
-  // We are bypassing the null user check for now
-  const activeUser = user || MOCK_OPTOMETRIST;
-
-  if (activeUser.role === 'admin') {
+  if (!user) {
     return (
-      <div className="relative h-screen">
-        <button 
-          onClick={toggleRole}
-          className="fixed top-4 right-4 z-[100] bg-orange-500 text-white px-4 py-2 rounded-full text-[10px] font-black shadow-lg hover:bg-orange-600 transition-all uppercase tracking-widest"
-        >
-          Dev: Switch to User View
-        </button>
-        <AdminDashboard 
-          user={activeUser} onLogout={toggleRole} 
-          bookings={bookings} setBookings={setBookings}
-          products={products} setProducts={setProducts}
-          withdrawals={withdrawals} setWithdrawals={setWithdrawals}
-        />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 space-y-8">
+          <div className="text-center">
+             <div className="w-16 h-16 bg-[#005696]/10 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-black text-[#005696]">CV</span>
+             </div>
+             <h2 className="text-2xl font-black text-slate-900">Partner Access</h2>
+             <p className="text-slate-400 text-xs mt-1 font-bold">Bypass Mode: Enter details to continue</p>
+          </div>
+
+          <div className="space-y-4">
+             <input 
+               placeholder="Your Full Name" 
+               className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-bold"
+               value={simpleName}
+               onChange={e => setSimpleName(e.target.value)}
+             />
+             <input 
+               placeholder="Clinic / Shop Name" 
+               className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-bold"
+               value={simpleShop}
+               onChange={e => setSimpleShop(e.target.value)}
+             />
+          </div>
+
+          <div className="flex flex-col gap-3">
+             <button onClick={() => handleSimpleLogin('optometrist')} className="w-full py-5 bg-[#005696] text-white rounded-2xl font-black text-lg shadow-xl shadow-blue-900/20">Login as Partner</button>
+             <button onClick={() => handleSimpleLogin('admin')} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-sm uppercase tracking-widest">Admin Control</button>
+          </div>
+        </div>
       </div>
+    );
+  }
+
+  if (user.role === 'admin') {
+    return (
+      <AdminDashboard 
+        user={user} onLogout={() => setUser(null)} 
+        bookings={bookings} setBookings={setBookings}
+        products={products} setProducts={setProducts}
+        withdrawals={withdrawals} setWithdrawals={setWithdrawals}
+      />
     );
   }
 
@@ -112,29 +130,24 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen max-w-md mx-auto bg-white shadow-xl relative overflow-hidden">
       <header className="p-4 flex items-center justify-between border-b bg-white sticky top-0 z-10">
         <div className="flex flex-col">
-          <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Bypass Mode Active</span>
-          <span className="text-lg font-bold text-[#005696]">{activeUser.full_name}</span>
+          <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Partner View</span>
+          <span className="text-lg font-bold text-[#005696]">{user.full_name}</span>
         </div>
-        <button 
-          onClick={toggleRole}
-          className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tight hover:bg-slate-200"
-        >
-          Switch to Admin
-        </button>
+        <button onClick={() => setUser(null)} className="text-xs text-slate-400 font-bold uppercase">Logout</button>
       </header>
 
       <main className="flex-1 overflow-y-auto pb-24 bg-slate-50">
-        {activeTab === 'dashboard' && <Dashboard user={activeUser} bookings={bookings} />}
-        {activeTab === 'new-booking' && <NewBooking user={activeUser} products={products} onBookingSubmit={() => { fetchData(activeUser); setActiveTab('history'); }} />}
+        {activeTab === 'dashboard' && <Dashboard user={user} bookings={bookings} />}
+        {activeTab === 'new-booking' && <NewBooking user={user} products={products} onBookingSubmit={() => { fetchData(user); setActiveTab('history'); }} />}
         {activeTab === 'history' && <MyBookings bookings={bookings} />}
-        {activeTab === 'rewards' && <Rewards user={activeUser} bookings={bookings} withdrawals={withdrawals} onWithdraw={() => fetchData(activeUser)} />}
+        {activeTab === 'rewards' && <Rewards user={user} bookings={bookings} withdrawals={withdrawals} onWithdraw={() => fetchData(user)} />}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t flex justify-around p-3 z-10">
         <NavItem active={activeTab === 'dashboard'} icon={<ICONS.Dashboard className="w-6 h-6" />} label="Home" onClick={() => setActiveTab('dashboard')} />
-        <NavItem active={activeTab === 'new-booking'} icon={<ICONS.Booking className="w-6 h-6" />} label="New Order" onClick={() => setActiveTab('new-booking')} />
+        <NavItem active={activeTab === 'new-booking'} icon={<ICONS.Booking className="w-6 h-6" />} label="Order" onClick={() => setActiveTab('new-booking')} />
         <NavItem active={activeTab === 'history'} icon={<ICONS.History className="w-6 h-6" />} label="Waitlist" onClick={() => setActiveTab('history')} />
-        <NavItem active={activeTab === 'rewards'} icon={<ICONS.Rewards className="w-6 h-6" />} label="Redeem" onClick={() => setActiveTab('rewards')} />
+        <NavItem active={activeTab === 'rewards'} icon={<ICONS.Rewards className="w-6 h-6" />} label="Wallet" onClick={() => setActiveTab('rewards')} />
       </nav>
     </div>
   );

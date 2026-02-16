@@ -2,7 +2,7 @@
 import React from 'react';
 
 export const COLORS = {
-  primary: '#005696', // CooperVision Blue
+  primary: '#005696',
   secondary: '#F1F5F9',
   accent: '#00A9E0',
   success: '#10B981',
@@ -10,14 +10,14 @@ export const COLORS = {
   danger: '#EF4444'
 };
 
-export const REWARD_CONVERSION_RATE = 10; // 10 points = ₹1 (5000 points = ₹500)
-export const MIN_WITHDRAWAL_POINTS = 5000;
+export const REWARD_CONVERSION_RATE = 1; // 1 Point = ₹1 for simplicity in percentage mode
+export const MIN_WITHDRAWAL_POINTS = 500;
 
 export const INITIAL_PRODUCTS = [
-  { id: '1', brand: 'CooperVision', product_name: 'Biofinity (6 Lenses)', points_per_unit: 500, active: true },
-  { id: '2', brand: 'CooperVision', product_name: 'MyDay (30 Lenses)', points_per_unit: 800, active: true },
-  { id: '3', brand: 'CooperVision', product_name: 'Clariti 1 Day (30 Lenses)', points_per_unit: 400, active: true },
-  { id: '4', brand: 'CooperVision', product_name: 'Avaira Vitality (6 Lenses)', points_per_unit: 300, active: true },
+  { id: '1', brand: 'CooperVision', product_name: 'Biofinity (6 Lenses)', base_price: 2500, reward_percentage: 5, points_per_unit: 125, active: true },
+  { id: '2', brand: 'CooperVision', product_name: 'MyDay (30 Lenses)', base_price: 4500, reward_percentage: 8, points_per_unit: 360, active: true },
+  { id: '3', brand: 'CooperVision', product_name: 'Clariti 1 Day (30 Lenses)', base_price: 1800, reward_percentage: 4, points_per_unit: 72, active: true },
+  { id: '4', brand: 'CooperVision', product_name: 'Avaira Vitality (6 Lenses)', base_price: 1500, reward_percentage: 3, points_per_unit: 45, active: true },
 ];
 
 export const ICONS = {
