@@ -3,12 +3,13 @@ export type UserRole = 'optometrist' | 'admin';
 
 export interface User {
   id: string;
+  optometrist_id: string; // Format: CV-OPT-XXXX
   full_name: string;
   email: string;
   phone: string;
   shop_name: string;
   city: string;
-  referral_code: string;
+  referral_code: string; // Format: OPT-XXXXXX
   role: UserRole;
   created_at: string;
 }
@@ -17,11 +18,10 @@ export interface Product {
   id: string;
   brand: string;
   product_name: string;
-  base_price: number;
-  reward_percentage: number; // 1 to 8
   points_per_unit: number; 
-  stock_quantity: number; // New stock tracking
   active: boolean;
+  base_price?: number;
+  stock_quantity?: number;
 }
 
 export type BookingStatus = 'waiting' | 'approved' | 'rejected';

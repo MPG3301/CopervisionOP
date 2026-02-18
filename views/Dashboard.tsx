@@ -25,76 +25,66 @@ const Dashboard: React.FC<DashboardProps> = ({ user, bookings }) => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Referral Code Card */}
-      <div className="bg-gradient-to-br from-[#005696] to-blue-700 rounded-3xl p-6 text-white shadow-xl shadow-blue-900/20 relative overflow-hidden">
-        <div className="relative z-10">
-          <span className="text-xs opacity-80 font-medium tracking-widest uppercase">My ID Code</span>
-          <h3 className="text-2xl font-black mt-1 tracking-wider">{user.referral_code}</h3>
-          <p className="text-[10px] mt-2 opacity-70">Quote this ID for direct admin support</p>
-        </div>
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard label="Total Points" value={stats.points.toLocaleString()} subValue={`₹${stats.amount}`} color="blue" />
-        <StatCard label="Approved" value={stats.approved} subValue="Bookings" color="emerald" />
-        <StatCard label="Pending" value={stats.pending} subValue="Awaiting" color="amber" />
-        <StatCard label="Total Orders" value={stats.total} subValue="Lifetime" color="slate" />
-      </div>
-
-      {/* Quick Action */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
-        <div>
-          <h4 className="font-bold text-slate-900">Need help?</h4>
-          <p className="text-xs text-slate-500">Contact admin for queries</p>
-        </div>
-        <button className="px-4 py-2 bg-slate-50 text-[#005696] rounded-lg text-xs font-bold border border-slate-200">
-          WhatsApp Support
-        </button>
-      </div>
-
-      {/* Recent Activity Mini List */}
-      <div className="space-y-3">
-        <h4 className="font-bold text-slate-900 text-sm px-1">Recent Activity</h4>
-        {bookings.length === 0 ? (
-          <div className="text-center py-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 text-xs">
-            No bookings yet. Start your first order!
-          </div>
-        ) : (
-          bookings.slice(0, 3).map(b => (
-            <div key={b.id} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-4">
-              <div className={`w-2 h-2 rounded-full ${b.status === 'approved' ? 'bg-emerald-500' : b.status === 'rejected' ? 'bg-red-500' : 'bg-amber-500'}`} />
-              <div className="flex-1">
-                <p className="text-xs font-bold text-slate-800 line-clamp-1">{b.product_name}</p>
-                <p className="text-[10px] text-slate-500">{new Date(b.created_at).toLocaleDateString()}</p>
-              </div>
-              <span className="text-xs font-black text-slate-900">+{b.points_earned} pts</span>
+      {/* PROFESSIONAL IDENTITY CARD */}
+      <div className="bg-gradient-to-br from-[#005696] to-blue-800 rounded-[35px] p-8 text-white shadow-2xl shadow-blue-900/30 relative overflow-hidden group">
+        <div className="relative z-10 flex flex-col h-full justify-between">
+          <div>
+            <div className="flex justify-between items-start mb-6">
+               <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-60">Optometrist Identity</span>
+               <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-md">
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+               </div>
             </div>
-          ))
-        )}
+            <h3 className="text-2xl font-black tracking-widest">{user.referral_code}</h3>
+            <p className="text-[10px] font-bold opacity-60 mt-1 uppercase">Ref ID: {user.optometrist_id}</p>
+          </div>
+          <div className="mt-8 border-t border-white/10 pt-4">
+             <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Registered Clinic</p>
+             <p className="font-bold text-sm">{user.shop_name} • {user.city}</p>
+          </div>
+        </div>
+        <div className="absolute -bottom-10 -right-10 opacity-5 transition-transform duration-700 group-hover:scale-125 group-hover:-rotate-12">
+           <svg className="w-64 h-64" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        </div>
+      </div>
+
+      {/* REWARDS QUICK GLANCE */}
+      <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex justify-between items-center px-8">
+         <div className="text-center">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Points</p>
+            <p className="text-2xl font-black text-slate-900">{stats.points.toLocaleString()}</p>
+         </div>
+         <div className="h-10 w-[2px] bg-slate-50"></div>
+         <div className="text-center">
+            <p className="text-[9px] font-black text-[#005696] uppercase tracking-widest mb-1">Wallet (₹)</p>
+            <p className="text-2xl font-black text-[#005696]">₹{stats.amount.toLocaleString()}</p>
+         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <MiniStat label="Pending" value={stats.pending} color="bg-amber-500" />
+        <MiniStat label="Approved" value={stats.approved} color="bg-emerald-500" />
+      </div>
+
+      <div className="bg-[#128C7E] rounded-[28px] p-6 text-white flex items-center justify-between shadow-xl shadow-green-900/10">
+        <div>
+          <h4 className="font-black text-sm uppercase tracking-widest leading-tight">Need Support?</h4>
+          <p className="text-[10px] opacity-70 font-bold uppercase mt-1 tracking-tighter">Connect with admin on WhatsApp</p>
+        </div>
+        <a href={`https://wa.me/91XXXXXXXXXX?text=Help%20requested%20for%20Partner%20ID:%20${user.referral_code}`} target="_blank" className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center hover:bg-white/30 transition-all">
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.417-.003 6.557-5.338 11.892-11.893 11.892-1.997-.001-3.951-.5-5.688-1.448l-6.305 1.652zm6.599-3.835c1.516.899 3.3 1.374 5.123 1.375 5.513 0 9.999-4.486 10.001-9.998.001-2.672-1.041-5.183-2.934-7.078-1.892-1.894-4.403-2.933-7.075-2.934-5.515 0-10.002 4.487-10.005 10.001-.001 1.776.463 3.511 1.341 5.021l-1.01 3.681 3.76-.986z"/></svg>
+        </a>
       </div>
     </div>
   );
 };
 
-const StatCard: React.FC<{ label: string; value: string | number; subValue: string; color: string }> = ({ label, value, subValue, color }) => {
-  const colorMap: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-600 border-blue-100',
-    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    amber: 'bg-amber-50 text-amber-600 border-amber-100',
-    slate: 'bg-slate-50 text-slate-600 border-slate-100'
-  };
-
-  return (
-    <div className={`p-4 rounded-3xl border ${colorMap[color]} flex flex-col items-center justify-center text-center space-y-1 shadow-sm`}>
-      <span className="text-[10px] uppercase font-bold tracking-tight opacity-70">{label}</span>
-      <span className="text-xl font-black">{value}</span>
-      <span className="text-[10px] opacity-70 font-medium">{subValue}</span>
-    </div>
-  );
-};
+const MiniStat = ({ label, value, color }: any) => (
+  <div className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm flex flex-col items-center text-center gap-1">
+    <span className={`w-2 h-2 rounded-full ${color} mb-1 animate-pulse`}></span>
+    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+    <span className="text-xl font-black text-slate-800">{value}</span>
+  </div>
+);
 
 export default Dashboard;

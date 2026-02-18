@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
@@ -44,8 +43,10 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
       if (!authData.user) throw new Error("Registration failed");
 
       // 2. Create Profile in 'profiles' table
+      // Fix: Added missing optometrist_id property required by the User interface
       const newUser: User = {
         id: authData.user.id,
+        optometrist_id: `CV-OPT-${Math.floor(Math.random() * 90000 + 10000)}`,
         full_name: formData.fullName,
         email: formData.email,
         phone: formData.phone,

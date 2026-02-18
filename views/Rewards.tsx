@@ -36,16 +36,14 @@ const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdr
   const handleRedeem = (e: React.FormEvent) => {
     e.preventDefault();
     if (stats.available < MIN_WITHDRAWAL_POINTS) {
-      return alert(`Minimum ${MIN_WITHDRAWAL_POINTS} points required to redeem.`);
+      return alert(`Threshold not met. You need at least ${MIN_WITHDRAWAL_POINTS} points (₹${MIN_WITHDRAWAL_POINTS / REWARD_CONVERSION_RATE}) to redeem.`);
     }
-    if (!upiId.includes('@')) {
-      return alert('Invalid UPI ID');
-    }
+    if (!upiId.includes('@')) return alert('Invalid UPI ID Format (e.g. name@okbank)');
 
     setIsProcessing(true);
     setTimeout(() => {
       const newWithdrawal: Withdrawal = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: `WTH-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
         user_id: user.id,
         points: stats.available,
         amount: stats.amount,
@@ -56,67 +54,70 @@ const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdr
       onWithdraw(newWithdrawal);
       setUpiId('');
       setIsProcessing(false);
-      alert('Withdrawal request submitted! Admin will process within 24-48 hours.');
+      alert('Withdrawal request queued! Payouts are usually processed within 24 hours.');
     }, 1500);
   };
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-6 space-y-8 animate-in fade-in duration-500">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-slate-900">Earnings</h2>
-        <p className="text-sm text-slate-500">Track and redeem your rewards</p>
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Wallet Hub</h2>
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Cash out your rewards</p>
       </div>
 
-      <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
-        <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-          <svg className="w-10 h-10 text-[#005696]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div className="bg-white rounded-[45px] p-10 border border-slate-100 shadow-[0_15px_30px_rgba(0,0,0,0.03)] flex flex-col items-center text-center relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
+           <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
         </div>
-        <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Redeemable Balance</span>
-        <h3 className="text-4xl font-black text-slate-900 mt-1">₹{stats.amount.toLocaleString()}</h3>
-        <p className="text-xs font-bold text-[#005696] mt-2">{stats.available.toLocaleString()} Points Available</p>
+        <div className="w-20 h-20 bg-blue-50 rounded-[28px] flex items-center justify-center mb-6 shadow-sm">
+          <svg className="w-10 h-10 text-[#005696]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest leading-none mb-1">Available to Redeem</span>
+        <h3 className="text-5xl font-black text-slate-900 tracking-tighter">₹{stats.amount.toLocaleString()}</h3>
+        <p className="text-[11px] font-black text-[#005696] mt-4 bg-blue-50 px-4 py-1.5 rounded-full uppercase tracking-tighter">{stats.available.toLocaleString()} Points Total</p>
       </div>
 
-      <form onSubmit={handleRedeem} className="space-y-4">
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-400 uppercase px-2">Transfer to UPI ID</label>
+      <form onSubmit={handleRedeem} className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Verified UPI ID</label>
           <input 
-            type="text" 
-            placeholder="e.g. username@okaxis" 
-            required
-            className="w-full px-4 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#005696] text-lg font-medium"
-            value={upiId}
-            onChange={(e) => setUpiId(e.target.value)}
+            type="text" placeholder="name@okaxis" required
+            className="w-full px-6 py-5 bg-white border-2 border-slate-50 rounded-2xl outline-none focus:border-[#005696] text-lg font-black tracking-tight transition-all"
+            value={upiId} onChange={(e) => setUpiId(e.target.value)}
           />
         </div>
         <button 
           disabled={stats.available < MIN_WITHDRAWAL_POINTS || isProcessing}
-          className={`w-full py-4 rounded-2xl font-black text-white shadow-xl shadow-blue-900/10 transition-all ${stats.available < MIN_WITHDRAWAL_POINTS ? 'bg-slate-300' : 'bg-[#005696] hover:bg-blue-800'}`}
+          className={`w-full py-6 rounded-3xl font-black text-lg text-white shadow-2xl transition-all active:scale-95 ${stats.available < MIN_WITHDRAWAL_POINTS ? 'bg-slate-300 shadow-none' : 'bg-slate-900 shadow-slate-900/30'}`}
         >
-          {isProcessing ? 'Processing...' : `Redeem ₹${stats.amount}`}
+          {isProcessing ? 'Verifying Request...' : `Withdraw ₹${stats.amount}`}
         </button>
         {stats.available < MIN_WITHDRAWAL_POINTS && (
-          <p className="text-[10px] text-center text-slate-400 font-medium">
-            Min. redemption is {MIN_WITHDRAWAL_POINTS} points (₹{MIN_WITHDRAWAL_POINTS / REWARD_CONVERSION_RATE})
-          </p>
+          <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3">
+             <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+             <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest">
+                Min. Redemption is {MIN_WITHDRAWAL_POINTS} points (₹500)
+             </p>
+          </div>
         )}
       </form>
 
-      <div className="space-y-4 pt-4 border-t border-slate-100">
-        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Withdrawal Status</h4>
+      <div className="space-y-4 pt-6 border-t border-slate-50">
+        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Payout History</h4>
         {withdrawals.filter(w => w.user_id === user.id).length === 0 ? (
-          <p className="text-center py-6 text-slate-400 text-xs italic">No redemption requests yet</p>
+          <div className="py-12 text-center text-slate-300 font-bold italic text-xs">No transactions recorded.</div>
         ) : (
           withdrawals.filter(w => w.user_id === user.id).map(w => (
-            <div key={w.id} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center">
+            <div key={w.id} className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex justify-between items-center group">
               <div>
-                <p className="text-xs font-bold text-slate-800">₹{w.amount}</p>
-                <p className="text-[10px] text-slate-500">{w.upi_id}</p>
+                <p className="text-base font-black text-slate-900 leading-none">₹{w.amount}</p>
+                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">{w.upi_id}</p>
               </div>
               <div className="text-right">
-                <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full ${w.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-xl ${w.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                   {w.status}
                 </span>
-                <p className="text-[9px] text-slate-400 mt-1">{new Date(w.created_at).toLocaleDateString()}</p>
+                <p className="text-[9px] text-slate-300 mt-2 font-bold">{new Date(w.created_at).toLocaleDateString()}</p>
               </div>
             </div>
           ))
