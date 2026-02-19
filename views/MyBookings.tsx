@@ -1,46 +1,59 @@
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { Booking } from '../types';
+import { supabase } from '../lib/supabase';
 
-const MyBookings: React.FC<{ bookings: Booking[] }> = ({ bookings }) => {
+const MyBookings: React.FC<{ bookings: Booking[], onUpdate: () => void }> = ({ bookings, onUpdate }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeBookingId = useRef<string | null>(null);
+
+  const handleBillUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeBookingId.current) return;
+    if (file.size > 2 * 1024 * 1024) return alert("File too large");
+
+    const fileName = `reupload_${activeBookingId.current}_${Date.now()}`;
+    const { data } = await supabase.storage.from('bills').upload(fileName, file);
+    if (data) {
+      const { data: pub } = supabase.storage.from('bills').getPublicUrl(fileName);
+      await supabase.from('bookings').update({ bill_image_url: pub.publicUrl }).eq('id', activeBookingId.current);
+      onUpdate();
+      alert("Bill updated successfully");
+    }
+  };
+
   return (
     <div className="p-6">
-      <h2 className="text-xl font-bold text-slate-900 mb-6 tracking-tight">Booking History</h2>
+      <h2 className="text-xl font-bold text-slate-900 mb-6 tracking-tight">Order Waitlist</h2>
+      <input type="file" ref={fileInputRef} onChange={handleBillUpload} className="hidden" accept="image/*,.pdf" />
       
       <div className="space-y-4">
-        {bookings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[32px] border border-slate-100 shadow-sm text-slate-400">
-            <svg className="w-16 h-16 mb-4 opacity-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <p className="font-bold text-sm">No waitlisted orders</p>
-            <p className="text-[10px] uppercase tracking-widest mt-1">Start by adding a new order</p>
-          </div>
-        ) : (
-          bookings.map(booking => (
-            <div key={booking.id} className="bg-white rounded-[28px] p-5 shadow-sm border border-slate-100 hover:border-slate-200 transition-all group">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <h3 className="font-black text-slate-800 text-sm group-hover:text-[#005696] transition-colors">{booking.product_name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md uppercase tracking-tighter">ID: {booking.id.substr(0,8)}</span>
-                    <span className="text-[9px] font-black bg-[#005696]/5 text-[#005696] px-2 py-0.5 rounded-md uppercase tracking-tighter">QTY: {booking.quantity}</span>
-                  </div>
-                </div>
-                <StatusBadge status={booking.status} />
+        {bookings.map(booking => (
+          <div key={booking.id} className="bg-white rounded-[28px] p-5 shadow-sm border border-slate-100">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex-1">
+                <h3 className="font-black text-slate-800 text-sm">{booking.product_name}</h3>
+                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">QTY: {booking.quantity}</p>
               </div>
-              
-              <div className="flex justify-between items-center pt-4 border-t border-slate-50">
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest">Reward Points</span>
-                  <span className="text-lg font-black text-[#005696]">+{booking.points_earned.toLocaleString()}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 font-bold block">{new Date(booking.created_at).toLocaleDateString()}</span>
-                  <span className="text-[9px] text-slate-300 font-medium uppercase tracking-tighter">{new Date(booking.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
+              <StatusBadge status={booking.status} />
+            </div>
+            
+            <div className="flex justify-between items-center pt-4 border-t border-slate-50">
+              <div className="flex flex-col">
+                <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest">Points</span>
+                <span className="text-lg font-black text-[#005696]">+{booking.points_earned}</span>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                {booking.bill_image_url ? (
+                  <a href={booking.bill_image_url} target="_blank" className="text-[9px] font-black text-[#005696] border border-[#005696] px-3 py-1 rounded-lg uppercase tracking-widest">View Bill</a>
+                ) : (
+                  <button onClick={() => { activeBookingId.current = booking.id; fileInputRef.current?.click(); }} className="text-[9px] font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-lg uppercase tracking-widest">Add Bill</button>
+                )}
+                <span className="text-[9px] text-slate-300 font-bold uppercase">{new Date(booking.created_at).toLocaleDateString()}</span>
               </div>
             </div>
-          ))
-        )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -52,16 +65,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     approved: 'bg-emerald-50 text-emerald-600 border-emerald-100',
     rejected: 'bg-red-50 text-red-600 border-red-100'
   };
-
-  const labels: Record<string, string> = {
-    waiting: 'WAITLISTED',
-    approved: 'POINTS CREDITED',
-    rejected: 'REJECTED'
-  };
-  
   return (
     <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${styles[status]}`}>
-      {labels[status] || status}
+      {status === 'waiting' ? 'QUEUED' : status}
     </span>
   );
 };
