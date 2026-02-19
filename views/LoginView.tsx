@@ -15,10 +15,15 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Forgot Password States
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [isResetLoading, setIsResetLoading] = useState(false);
+  const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
+
   const handleAdminQuickLogin = () => {
     onLogin({
       id: 'admin-1',
-      // Fix: Added missing required property 'optometrist_id' for the User interface
       optometrist_id: 'CV-OPT-0000',
       full_name: 'Super Admin',
       email: 'admin@coopervision.com',
@@ -58,6 +63,26 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
       setError(err.message || 'Invalid login credentials');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsResetLoading(true);
+    setResetStatus(null);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+
+      if (error) throw error;
+
+      setResetStatus({ type: 'success', msg: 'Password reset link sent! Please check your inbox.' });
+    } catch (err: any) {
+      setResetStatus({ type: 'error', msg: err.message || 'Could not send reset link' });
+    } finally {
+      setIsResetLoading(false);
     }
   };
 
@@ -107,7 +132,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
               <label className="flex items-center gap-2 text-slate-500">
                 <input type="checkbox" className="rounded" defaultChecked /> Remember me
               </label>
-              <button type="button" className="text-[#005696] font-semibold">Forgot Password?</button>
+              <button 
+                type="button" 
+                onClick={() => setIsResetModalOpen(true)}
+                className="text-[#005696] font-semibold"
+              >
+                Forgot Password?
+              </button>
             </div>
 
             <button 
@@ -144,6 +175,54 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
           Powered by CooperVision Rewards Program v1.0
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-2xl relative">
+            <button 
+              onClick={() => { setIsResetModalOpen(false); setResetStatus(null); }}
+              className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-blue-50 text-[#005696] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Reset Password</h3>
+              <p className="text-xs text-slate-500 mt-1">We'll send a link to your email</p>
+            </div>
+
+            {resetStatus && (
+              <div className={`mb-4 p-3 rounded-xl text-center text-[11px] font-bold ${resetStatus.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                {resetStatus.msg}
+              </div>
+            )}
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Work Email</label>
+                <input 
+                  type="email" 
+                  required
+                  placeholder="name@clinic.com"
+                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-[#005696] outline-none transition-all font-medium"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                />
+              </div>
+              <button 
+                disabled={isResetLoading}
+                className="w-full py-4 bg-[#005696] text-white rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
+              >
+                {isResetLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

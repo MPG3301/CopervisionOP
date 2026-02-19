@@ -98,8 +98,9 @@ const App: React.FC = () => {
             <p className="text-[10px] font-black text-[#005696] uppercase tracking-[0.2em] mb-1 leading-none">CooperVision Partner</p>
             <h1 className="text-xl font-black text-slate-900 leading-none">{user.full_name}</h1>
           </div>
-          <button onClick={handleLogout} className="p-2.5 bg-slate-50 rounded-xl text-slate-400 hover:text-red-500 transition-colors">
-             <ICONS.X className="w-5 h-5" />
+          <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-slate-400 hover:text-red-500 transition-colors">
+             <span className="text-[10px] font-black uppercase tracking-widest">Logout</span>
+             <ICONS.X className="w-4 h-4" />
           </button>
         </header>
 

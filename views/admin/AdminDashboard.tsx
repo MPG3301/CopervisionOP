@@ -22,6 +22,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
+  const chartData = useMemo(() => {
+    const last7Days = [...Array(7)].map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toLocaleDateString('en-GB'); 
+    }).reverse();
+
+    return last7Days.map(date => ({
+      name: date.substring(0, 5),
+      val: props.bookings.filter(b => {
+        if (!b.created_at) return false;
+        return b.status === 'approved' && new Date(b.created_at).toLocaleDateString('en-GB') === date;
+      }).length
+    }));
+  }, [props.bookings]);
+
   const handleUpdateBooking = async (id: string, status: BookingStatus) => {
     const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
     if (!error) {
@@ -79,6 +95,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
   return (
     <div className="flex h-screen bg-slate-50 w-full overflow-hidden flex-col lg:flex-row">
+      {/* SIDEBAR */}
       <aside className="w-72 bg-[#005696] hidden lg:flex flex-col p-8 gap-8 shadow-2xl z-40">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#005696] font-black text-xl shadow-lg">CV</div>
@@ -116,13 +133,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
         <main className="flex-1 overflow-y-auto p-6 md:p-12 pb-28 lg:pb-12">
           {view === 'overview' && (
-            <div className="max-w-6xl mx-auto space-y-8">
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight">Master Overview</h2>
+            <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+              <header>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Master Overview</h2>
+                <p className="text-slate-400 font-bold uppercase text-[9px] tracking-[0.2em] mt-1">Real-time performance</p>
+              </header>
+
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatBox label="Waiting" val={props.bookings.filter(b => b.status === 'waiting').length} color="amber" />
                 <StatBox label="Partners" val={new Set(props.bookings.map(b => b.user_id)).size} color="blue" />
                 <StatBox label="Points" val={props.bookings.filter(b => b.status === 'approved').reduce((s, b) => s + b.points_earned, 0)} color="emerald" />
-                <StatBox label="Redemptions" val={props.withdrawals.filter(w => w.status === 'pending').length} color="rose" />
+                <StatBox label="Payouts" val={props.withdrawals.filter(w => w.status === 'pending').length} color="rose" />
+              </div>
+
+              {/* RESTORED GRAPH */}
+              <div className="bg-white p-6 md:p-8 rounded-[40px] border border-slate-100 shadow-sm">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Approval Trends (7D)</h3>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} />
+                      <Tooltip contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                      <Line type="monotone" dataKey="val" stroke="#005696" strokeWidth={4} dot={{ r: 4, fill: '#005696' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           )}
@@ -131,21 +167,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             <div className="max-w-4xl mx-auto space-y-6">
               <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Waitlist Review</h2>
               <div className="space-y-4">
-                {props.bookings.filter(b => b.status === 'waiting').map(b => (
-                  <div key={b.id} className="bg-white p-5 rounded-[30px] border border-slate-100 shadow-sm flex flex-col gap-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-black text-slate-900 text-base uppercase">{b.product_name}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">BY: {b.optometrist_name}</p>
+                {props.bookings.filter(b => b.status === 'waiting').length === 0 ? (
+                  <div className="py-24 text-center text-slate-300 font-black italic text-xs uppercase border-2 border-dashed border-slate-100 rounded-[30px]">No pending items</div>
+                ) : (
+                  props.bookings.filter(b => b.status === 'waiting').map(b => (
+                    <div key={b.id} className="bg-white p-5 rounded-[30px] border border-slate-100 shadow-sm flex flex-col gap-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-black text-slate-900 text-base uppercase">{b.product_name}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">BY: {b.optometrist_name}</p>
+                        </div>
+                        <div className="bg-blue-50 px-3 py-1 rounded-full text-[#005696] font-black text-[10px]">{b.quantity} Packs</div>
                       </div>
-                      <div className="bg-blue-50 px-3 py-1 rounded-full text-[#005696] font-black text-[10px]">{b.quantity} Packs</div>
+                      <div className="flex gap-2">
+                        {b.bill_image_url && (
+                          <a href={b.bill_image_url} target="_blank" className="flex-1 py-3 bg-slate-50 text-[#005696] rounded-xl text-[9px] font-black uppercase text-center border border-blue-100">View Proof</a>
+                        )}
+                        <button onClick={() => handleUpdateBooking(b.id, 'approved')} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg">Confirm</button>
+                        <button onClick={() => handleUpdateBooking(b.id, 'rejected')} className="flex-1 py-3 bg-slate-100 text-slate-400 rounded-xl text-[10px] font-black uppercase">Deny</button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleUpdateBooking(b.id, 'approved')} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg">Confirm</button>
-                      <button onClick={() => handleUpdateBooking(b.id, 'rejected')} className="flex-1 py-3 bg-slate-100 text-slate-400 rounded-xl text-[10px] font-black uppercase">Deny</button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -156,8 +199,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                  <h2 className="text-2xl font-black text-slate-900 uppercase">Lens Catalog</h2>
                  <div className="flex gap-2">
                     <input type="file" ref={csvInputRef} onChange={handleBulkUpload} className="hidden" accept=".csv" />
-                    <button onClick={() => csvInputRef.current?.click()} className="px-6 py-3 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase">CSV Import</button>
-                    <button onClick={() => setEditingProduct({} as any)} className="p-3 bg-[#005696] text-white rounded-xl shadow-lg"><ICONS.Booking className="w-5 h-5"/></button>
+                    <button onClick={() => csvInputRef.current?.click()} className="px-6 py-3 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase hidden sm:block">CSV Import</button>
+                    {/* FIXED ADD BUTTON */}
+                    <button onClick={() => setEditingProduct({ id: '', brand: 'CooperVision', product_name: '', points_per_unit: 0, active: true, base_price: 0 })} className="p-3 bg-[#005696] text-white rounded-xl shadow-lg hover:bg-blue-800 transition-colors">
+                      <ICONS.Booking className="w-5 h-5" />
+                    </button>
                  </div>
               </header>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -174,7 +220,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                        <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Points</span><span className="text-xs font-black text-slate-700">{p.points_per_unit}</span></div>
                        <div className="flex flex-col text-right"><span className="text-[8px] font-black text-slate-400 uppercase">Price</span><span className="text-xs font-black text-slate-700">₹{p.base_price}</span></div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => setEditingProduct(p)} className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase">Edit</button>
                       <button onClick={() => handleToggleProduct(p)} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase text-white ${p.active ? 'bg-amber-500' : 'bg-emerald-500'}`}>{p.active ? 'Off' : 'On'}</button>
                     </div>
@@ -207,9 +253,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                                <span className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border ${w.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{w.status === 'approved' ? 'PAID' : 'PENDING'}</span>
                             </div>
 
-                            {/* PARTNER DETAILS SECTION */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-50">
-                               <DetailItem label="Partner Name" val={w.profiles?.full_name || 'N/A'} />
+                               <DetailItem label="Partner" val={w.profiles?.full_name || 'N/A'} />
                                <DetailItem label="Mobile" val={w.profiles?.phone || 'N/A'} />
                                <DetailItem label="Clinic" val={w.profiles?.shop_name || 'N/A'} />
                                <DetailItem label="City" val={w.profiles?.city || 'N/A'} />
@@ -217,18 +262,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
                             {w.status === 'pending' && (
                                <div className="flex gap-2 pt-2 border-t border-slate-50">
-                                  <button 
-                                    onClick={() => handleUpdateWithdrawal(w.id, 'approved')}
-                                    className="flex-1 py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-slate-900/30 active:scale-95 transition-all"
-                                  >
-                                    Confirm Payment & Close
-                                  </button>
-                                  <button 
-                                    onClick={() => handleUpdateWithdrawal(w.id, 'rejected')}
-                                    className="px-8 py-4 bg-slate-50 text-slate-300 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:text-red-400 transition-colors"
-                                  >
-                                    Reject
-                                  </button>
+                                  <button onClick={() => handleUpdateWithdrawal(w.id, 'approved')} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-slate-900/30 active:scale-95 transition-all">Mark as Paid</button>
+                                  <button onClick={() => handleUpdateWithdrawal(w.id, 'rejected')} className="px-8 py-4 bg-slate-50 text-slate-300 rounded-2xl text-[11px] font-black uppercase tracking-widest">Reject</button>
                                </div>
                             )}
                          </div>
@@ -246,6 +281,65 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            <AdminNavItem active={view === 'withdrawals'} label="Payouts" icon={<ICONS.Rewards className="w-6 h-6" />} onClick={() => setView('withdrawals')} />
         </nav>
       </div>
+
+      {/* MODAL FOR ADDING/EDITING PRODUCTS */}
+      {editingProduct && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
+           <div className="bg-white w-full max-w-lg rounded-[40px] p-8 shadow-2xl relative">
+              <button onClick={() => setEditingProduct(null)} className="absolute top-6 right-6 p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-red-500 transition-colors"><ICONS.X className="w-5 h-5"/></button>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-8">
+                {editingProduct.id ? 'Refine Catalog Entry' : 'New Catalog Item'}
+              </h3>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const target = e.target as any;
+                const payload = { 
+                  product_name: target.pname.value,
+                  brand: target.pbrand.value || 'CooperVision',
+                  base_price: parseInt(target.pprice.value),
+                  points_per_unit: parseInt(target.ppoints.value),
+                  active: true
+                };
+
+                let res;
+                if (editingProduct.id) {
+                  res = await supabase.from('products').update(payload).eq('id', editingProduct.id).select();
+                } else {
+                  res = await supabase.from('products').insert([payload]).select();
+                }
+
+                if (!res.error && res.data) {
+                  if (editingProduct.id) {
+                    props.setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...payload } : p));
+                  } else {
+                    props.setProducts(prev => [...prev, ...res.data!]);
+                  }
+                  setEditingProduct(null);
+                }
+              }} className="space-y-5">
+                 <div className="space-y-1">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Manufacturer</label>
+                   <input name="pbrand" defaultValue={editingProduct.brand || "CooperVision"} className="w-full px-5 py-4 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-[#005696] outline-none" />
+                 </div>
+                 <div className="space-y-1">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Display Title</label>
+                   <input name="pname" defaultValue={editingProduct.product_name} required className="w-full px-5 py-4 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-[#005696] outline-none" />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1">
+                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Price (₹)</label>
+                     <input name="pprice" type="number" defaultValue={editingProduct.base_price} required className="w-full px-5 py-4 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-[#005696] outline-none" />
+                   </div>
+                   <div className="space-y-1">
+                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Points</label>
+                     <input name="ppoints" type="number" defaultValue={editingProduct.points_per_unit} required className="w-full px-5 py-4 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-[#005696] outline-none" />
+                   </div>
+                 </div>
+                 <button type="submit" className="w-full py-5 bg-[#005696] text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-blue-900/30 active:scale-95 transition-transform mt-4">Commit Changes</button>
+              </form>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -258,7 +352,7 @@ const DetailItem = ({ label, val }: any) => (
 );
 
 const SidebarItem = ({ active, label, icon, onClick }: any) => (
-  <button onClick={onClick} className={`flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-black text-sm uppercase tracking-widest ${active ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'}`}>
+  <button onClick={onClick} className={`flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-black text-sm uppercase tracking-widest ${active ? 'bg-white/15 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}>
     {icon} <span>{label}</span>
   </button>
 );
