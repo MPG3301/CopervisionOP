@@ -29,27 +29,25 @@ const App: React.FC = () => {
       const { data: prods } = await supabase.from('products').select('*').order('product_name');
       if (prods) setProducts(prods);
 
-      // Fetch Bookings with fallback for schema errors
+      // Fetch Bookings - Now that schema is standard, we don't need the fallback logic
       let bQuery = supabase.from('bookings').select('*');
-      if (currentUser.role !== 'admin') bQuery = bQuery.eq('user_id', currentUser.id);
+      if (currentUser.role !== 'admin') {
+        bQuery = bQuery.eq('user_id', currentUser.id);
+      }
       
       const { data: bks, error: bError } = await bQuery.order('created_at', { ascending: false });
-      
-      if (bError && bError.message.includes('created_at')) {
-        // Fallback if column missing in cache
-        const { data: fallbackBks } = await bQuery;
-        if (fallbackBks) setBookings(fallbackBks);
-      } else if (bks) {
-        setBookings(bks);
-      }
+      if (bks) setBookings(bks);
+      if (bError) console.error("Bookings Fetch Error:", bError.message);
 
       // Fetch Withdrawals
       let wQuery = supabase.from('withdrawals').select('*');
-      if (currentUser.role !== 'admin') wQuery = wQuery.eq('user_id', currentUser.id);
+      if (currentUser.role !== 'admin') {
+        wQuery = wQuery.eq('user_id', currentUser.id);
+      }
       const { data: wths } = await wQuery.order('created_at', { ascending: false });
       if (wths) setWithdrawals(wths);
     } catch (err) {
-      console.error("Sync Error:", err);
+      console.error("Critical Sync Error:", err);
     }
   }, []);
 
@@ -57,10 +55,14 @@ const App: React.FC = () => {
     if (user) {
       fetchData(user);
       localStorage.setItem('cv_user_session', JSON.stringify(user));
-      const channel = supabase.channel('realtime-sync')
+      
+      // Realtime subscription for instant updates
+      const channel = supabase.channel('schema-db-changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => fetchData(user))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawals' }, () => fetchData(user))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData(user))
         .subscribe();
+        
       return () => { supabase.removeChannel(channel); };
     }
   }, [user, fetchData]);

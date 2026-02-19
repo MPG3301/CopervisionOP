@@ -19,7 +19,6 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const submitButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,16 +30,10 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            phone: formData.phone
-          }
-        }
       });
 
       if (authError) throw authError;
-      if (!authData.user) throw new Error("Registration failed");
+      if (!authData.user) throw new Error("Registration failed to return user data.");
 
       // 2. Create Profile in 'profiles' table
       const newUser: User = {
@@ -59,22 +52,13 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
       const { error: profileError } = await supabase.from('profiles').insert([newUser]);
       
       if (profileError) {
-        // Fallback: If 'optometrist_id' or other specific columns fail, try inserting with minimal payload
-        if (profileError.message.includes('optometrist_id') || profileError.message.includes('schema cache')) {
-           const { optometrist_id, ...fallbackUser } = newUser;
-           const { error: fallbackError } = await supabase.from('profiles').insert([fallbackUser]);
-           if (fallbackError && fallbackError.code !== '23505') throw fallbackError;
-           onRegister(newUser); // Proceed with the full object locally
-        } else if (profileError.code !== '23505') {
-           throw profileError;
-        } else {
-           onRegister(newUser);
-        }
-      } else {
-        onRegister(newUser);
+        console.error("Profile creation error:", profileError);
+        throw new Error(`Profile creation failed: ${profileError.message}`);
       }
+
+      onRegister(newUser);
     } catch (err: any) {
-      setError(err.message || "Connection error. Please try again.");
+      setError(err.message || "An unexpected error occurred during registration.");
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +72,7 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
              <span className="text-3xl font-black text-[#005696]">CV</span>
           </div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">Partner Sign Up</h2>
-          <p className="text-slate-400 text-sm mt-1 font-medium italic">Instant access to rewards portal</p>
+          <p className="text-slate-400 text-sm mt-1 font-medium italic">Join the CooperVision rewards network</p>
         </div>
 
         {error && (
@@ -144,7 +128,7 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Clinic / Shop Title</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Clinic Name</label>
             <input 
               type="text" required
               placeholder="e.g. Vision Center"
@@ -167,22 +151,16 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
 
           <button 
             type="submit"
-            ref={submitButtonRef}
             disabled={isLoading}
             className={`w-full py-5 rounded-2xl font-black text-white shadow-xl shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-3 ${isLoading ? 'bg-slate-400' : 'bg-[#005696] hover:bg-blue-800'}`}
           >
-            {isLoading ? (
-              <>
-                <div className="animate-spin h-5 w-5 border-2 border-white/30 border-t-white rounded-full"></div>
-                Initializing...
-              </>
-            ) : 'Join Now'}
+            {isLoading ? "Processing..." : "Register Clinic"}
           </button>
         </form>
 
-        <div className="mt-10 pt-6 border-t border-slate-50 text-center">
+        <div className="mt-8 pt-6 border-t border-slate-50 text-center">
           <p className="text-sm text-slate-500 font-bold">
-            Already a partner? <button onClick={onSwitchToLogin} className="text-[#005696] hover:underline">Log In</button>
+            Already registered? <button onClick={onSwitchToLogin} className="text-[#005696] font-bold">Log In</button>
           </p>
         </div>
       </div>

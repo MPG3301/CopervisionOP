@@ -47,25 +47,25 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
         billUrl = publicUrl.publicUrl;
       }
 
-      const bookingData: Partial<Booking> = {
+      // Match keys exactly with public.bookings table
+      const bookingData = {
         id: `CV-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
         user_id: user.id,
         product_id: productId,
         product_name: selectedProduct!.product_name,
-        quantity,
-        status: 'waiting',
+        optometrist_name: user.full_name,
+        quantity: quantity,
         points_earned: calculatedPoints,
         bill_image_url: billUrl,
-        optometrist_name: user.full_name,
-        created_at: new Date().toISOString()
+        status: 'waiting'
       };
 
       const { error: insertError } = await supabase.from('bookings').insert([bookingData]);
       if (insertError) throw insertError;
       
-      onBookingSubmit(bookingData as Booking);
+      onBookingSubmit(bookingData as any as Booking);
     } catch (err: any) {
-      alert("Error submitting: " + err.message);
+      alert("Error submitting: " + (err.message || "Unknown Database Error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -116,7 +116,6 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
                 <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest text-center px-4 leading-relaxed">
                   {billFile ? billFile.name : 'Click to select slip or invoice'}
                 </span>
-                {billFile && <span className="text-[8px] font-black text-[#005696] uppercase mt-2">File Ready</span>}
               </div>
             </div>
           </div>
@@ -131,7 +130,7 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
           type="submit" disabled={isSubmitting}
           className={`w-full py-7 rounded-[30px] font-black text-xl text-white shadow-2xl transition-all active:scale-95 ${isSubmitting ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-900 shadow-slate-900/30'}`}
         >
-          {isSubmitting ? 'Syncing...' : 'SUBMIT TO WAITLIST'}
+          {isSubmitting ? 'Submitting Order...' : 'SUBMIT TO WAITLIST'}
         </button>
       </form>
     </div>
