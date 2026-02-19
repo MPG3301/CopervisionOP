@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, Booking, Withdrawal } from '../types';
 import { REWARD_CONVERSION_RATE, MIN_WITHDRAWAL_POINTS } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -14,6 +14,9 @@ interface RewardsProps {
 const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdraw }) => {
   const [upiId, setUpiId] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    'Notification' in window ? Notification.permission : 'denied'
+  );
 
   const stats = useMemo(() => {
     const totalEarned = bookings
@@ -33,6 +36,15 @@ const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdr
       redeemed: totalRedeemed
     };
   }, [bookings, withdrawals, user.id]);
+
+  const requestNotifPermission = async () => {
+    if (!('Notification' in window)) return alert('Notifications not supported');
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === 'granted') {
+      new Notification("Alerts Enabled!", { body: "You will now receive updates on your payouts." });
+    }
+  };
 
   const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +83,17 @@ const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdr
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">Wallet Hub</h2>
         <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Earned points to cash payouts</p>
       </div>
+
+      {/* NOTIFICATION PERMISSION CARD */}
+      {notifPermission !== 'granted' && (
+        <div className="bg-blue-50/50 border border-blue-100 p-5 rounded-[30px] flex items-center justify-between gap-4">
+           <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-[#005696] shadow-sm"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>
+              <p className="text-[10px] font-black text-[#005696] uppercase tracking-widest">Enable payout alerts</p>
+           </div>
+           <button onClick={requestNotifPermission} className="bg-[#005696] text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-transform">Enable</button>
+        </div>
+      )}
 
       <div className="bg-white rounded-[45px] p-10 border border-slate-100 shadow-[0_15px_30px_rgba(0,0,0,0.03)] flex flex-col items-center text-center relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">

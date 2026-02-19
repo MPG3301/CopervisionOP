@@ -22,14 +22,21 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // Capture the install prompt for Android/Chrome
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+  }, []);
 
   const fetchData = useCallback(async (currentUser: User) => {
     try {
-      // Fetch Products
       const { data: prods } = await supabase.from('products').select('*').order('product_name');
       if (prods) setProducts(prods);
 
-      // Fetch Bookings
       let bQuery = supabase.from('bookings').select('*');
       if (currentUser.role !== 'admin') {
         bQuery = bQuery.eq('user_id', currentUser.id);
@@ -37,7 +44,6 @@ const App: React.FC = () => {
       const { data: bks } = await bQuery.order('created_at', { ascending: false });
       if (bks) setBookings(bks);
 
-      // Fetch Withdrawals (Admin needs profile details)
       let wQuery = supabase.from('withdrawals').select('*, profiles(*)');
       if (currentUser.role !== 'admin') {
         wQuery = supabase.from('withdrawals').select('*').eq('user_id', currentUser.id);
@@ -105,7 +111,7 @@ const App: React.FC = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto pb-32">
-          {activeTab === 'dashboard' && <Dashboard user={user} bookings={bookings} />}
+          {activeTab === 'dashboard' && <Dashboard user={user} bookings={bookings} deferredPrompt={deferredPrompt} />}
           {activeTab === 'new-booking' && <NewBooking user={user} products={products} onBookingSubmit={() => { fetchData(user); setActiveTab('history'); }} />}
           {activeTab === 'history' && <MyBookings bookings={bookings} onUpdate={() => fetchData(user)} />}
           {activeTab === 'rewards' && <Rewards user={user} bookings={bookings} withdrawals={withdrawals} onWithdraw={() => fetchData(user)} />}
