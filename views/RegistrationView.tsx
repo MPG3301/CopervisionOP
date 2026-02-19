@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
@@ -27,7 +28,6 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
     
     try {
       // 1. Create User in Supabase Auth
-      // Note: Admin should disable "Email confirmation" in Supabase dashboard for instant access.
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -43,7 +43,6 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
       if (!authData.user) throw new Error("Registration failed");
 
       // 2. Create Profile in 'profiles' table
-      // Fix: Added missing optometrist_id property required by the User interface
       const newUser: User = {
         id: authData.user.id,
         optometrist_id: `CV-OPT-${Math.floor(Math.random() * 90000 + 10000)}`,
@@ -59,22 +58,25 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
 
       const { error: profileError } = await supabase.from('profiles').insert([newUser]);
       
-      // If profile exists or other error, we still try to proceed if auth was successful
-      if (profileError && profileError.code !== '23505') throw profileError;
-      
-      onRegister(newUser);
+      if (profileError) {
+        // Fallback: If 'optometrist_id' or other specific columns fail, try inserting with minimal payload
+        if (profileError.message.includes('optometrist_id') || profileError.message.includes('schema cache')) {
+           const { optometrist_id, ...fallbackUser } = newUser;
+           const { error: fallbackError } = await supabase.from('profiles').insert([fallbackUser]);
+           if (fallbackError && fallbackError.code !== '23505') throw fallbackError;
+           onRegister(newUser); // Proceed with the full object locally
+        } else if (profileError.code !== '23505') {
+           throw profileError;
+        } else {
+           onRegister(newUser);
+        }
+      } else {
+        onRegister(newUser);
+      }
     } catch (err: any) {
       setError(err.message || "Connection error. Please try again.");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleCityKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      submitButtonRef.current?.focus();
-      handleSubmit(e as any);
     }
   };
 
@@ -149,6 +151,17 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
               className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-[#005696] focus:bg-white transition-all outline-none font-bold text-slate-800"
               value={formData.shopName}
               onChange={e => setFormData({...formData, shopName: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">City</label>
+            <input 
+              type="text" required
+              placeholder="e.g. Mumbai"
+              className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-[#005696] focus:bg-white transition-all outline-none font-bold text-slate-800"
+              value={formData.city}
+              onChange={e => setFormData({...formData, city: e.target.value})}
             />
           </div>
 

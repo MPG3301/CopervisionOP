@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { User, Booking, Product, Withdrawal, BookingStatus, WithdrawalStatus } from '../../types';
 import { ICONS } from '../../constants';
 import { supabase } from '../../lib/supabase';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AdminDashboardProps {
   user: User;
@@ -21,43 +21,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const [showProductForm, setShowProductForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sales chart data
   const chartData = useMemo(() => {
-    const last7Days = [...Array(7)].map((_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      return d.toLocaleDateString();
-    }).reverse();
+    try {
+      const last7Days = [...Array(7)].map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return d.toLocaleDateString();
+      }).reverse();
 
-    return last7Days.map(date => ({
-      date: date.split('/')[0] + '/' + date.split('/')[1],
-      orders: props.bookings.filter(b => b.status === 'approved' && new Date(b.created_at).toLocaleDateString() === date).length,
-      points: props.bookings.filter(b => b.status === 'approved' && new Date(b.created_at).toLocaleDateString() === date).reduce((s, b) => s + b.points_earned, 0)
-    }));
-  }, [props.bookings]);
-
-  const exportToCSV = (type: 'bookings' | 'partners') => {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    if (type === 'bookings') {
-      csvContent += "ID,Optometrist,Product,Quantity,Points,Status,Date\n";
-      props.bookings.forEach(b => {
-        csvContent += `${b.id},${b.optometrist_name},${b.product_name},${b.quantity},${b.points_earned},${b.status},${new Date(b.created_at).toLocaleDateString()}\n`;
-      });
-    } else {
-      csvContent += "ID,Name,Shop,City,Referral,Join Date\n";
-      const partners = new Map();
-      props.bookings.forEach(b => partners.set(b.user_id, { name: b.optometrist_name, date: b.created_at }));
-      partners.forEach((v, k) => {
-        csvContent += `${k},${v.name},Clinic,Mumbai,OPT-XXXXXX,${new Date(v.date).toLocaleDateString()}\n`;
-      });
+      return last7Days.map(date => ({
+        date: date.split('/')[0] + '/' + date.split('/')[1],
+        orders: props.bookings.filter(b => b.status === 'approved' && new Date(b.created_at || Date.now()).toLocaleDateString() === date).length,
+      }));
+    } catch (e) {
+      return [];
     }
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `CV_${type}_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-  };
+  }, [props.bookings]);
 
   const handleUpdateStatus = async (id: string, status: BookingStatus) => {
     const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
@@ -71,17 +50,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     reader.onload = async (event) => {
       const csv = event.target?.result as string;
       const lines = csv.split('\n').filter(l => l.trim());
+      
       const newProds = lines.slice(1).map(line => {
-        const [brand, name, points, active] = line.split(',').map(s => s.trim());
-        return {
+        const [brand, name, points, price, active] = line.split(',').map(s => s.trim());
+        const prod: any = {
           brand: brand || 'CooperVision',
           product_name: name,
           points_per_unit: parseInt(points) || 0,
-          active: active.toLowerCase() === 'true'
+          active: active?.toLowerCase() === 'true'
         };
+        if (price) prod.base_price = parseInt(price);
+        return prod;
       });
+
       const { data, error } = await supabase.from('products').insert(newProds).select();
-      if (!error && data) props.setProducts(prev => [...prev, ...data]);
+      if (error) {
+        if (error.message.includes('base_price')) {
+          const fallbackProds = newProds.map(({ base_price, ...rest }: any) => rest);
+          const { data: fbData, error: fbError } = await supabase.from('products').insert(fallbackProds).select();
+          if (!fbError && fbData) props.setProducts(prev => [...prev, ...fbData]);
+          else alert("Schema Error: Please ensure columns exist in 'products' table.");
+        } else {
+          alert(error.message);
+        }
+      } else if (data) {
+        props.setProducts(prev => [...prev, ...data]);
+      }
     };
     reader.readAsText(file);
   };
@@ -90,10 +84,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     <div className="flex flex-col h-screen bg-slate-50 max-w-md mx-auto relative overflow-hidden font-sans border-x border-slate-200">
       <header className="bg-white px-6 py-5 border-b flex justify-between items-center sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#005696] rounded-lg flex items-center justify-center"><ICONS.Check className="w-5 h-5 text-white" /></div>
+          <div className="w-8 h-8 bg-[#005696] rounded-lg flex items-center justify-center shadow-lg shadow-blue-200"><ICONS.Check className="w-5 h-5 text-white" /></div>
           <div>
             <h1 className="text-sm font-black text-slate-900 tracking-tight leading-none uppercase">Admin Portal</h1>
-            <p className="text-[9px] font-bold text-[#005696] tracking-widest mt-0.5">SUPER USER MODE</p>
+            <p className="text-[9px] font-bold text-[#005696] tracking-widest mt-0.5 uppercase tracking-widest">Master Access</p>
           </div>
         </div>
         <button onClick={props.onLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><ICONS.X className="w-5 h-5" /></button>
@@ -107,29 +101,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
               <AdminStatCard label="Partners" value={new Set(props.bookings.map(b => b.user_id)).size} color="blue" />
             </div>
 
-            <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
+            <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4 overflow-hidden">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Order Volume (7D)</h3>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} />
-                    <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                    <Line type="monotone" dataKey="orders" stroke="#005696" strokeWidth={3} dot={{ r: 4, fill: '#005696' }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="w-full h-48 block relative min-h-[192px]">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} />
+                      <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                      <Line type="monotone" dataKey="orders" stroke="#005696" strokeWidth={3} dot={{ r: 4, fill: '#005696', strokeWidth: 2, stroke: '#fff' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-300 text-[10px] uppercase font-bold">Waiting for sales data...</div>
+                )}
               </div>
             </div>
 
             <div className="grid gap-3">
-               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Super Admin Actions</h4>
+               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Control Center</h4>
                <QuickAction icon={<ICONS.History className="w-5 h-5"/>} label="Review Waitlist" onClick={() => setView('bookings')} color="bg-amber-500" />
                <QuickAction icon={<ICONS.Booking className="w-5 h-5"/>} label="Manage Catalog" onClick={() => setView('products')} color="bg-blue-600" />
-               <QuickAction icon={<ICONS.Rewards className="w-5 h-5"/>} label="Redemption Requests" onClick={() => setView('withdrawals')} color="bg-emerald-600" />
-               <div className="grid grid-cols-2 gap-3 mt-2">
-                 <button onClick={() => exportToCSV('bookings')} className="py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">Export Orders</button>
-                 <button onClick={() => exportToCSV('partners')} className="py-4 bg-white text-slate-900 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">Export Partners</button>
-               </div>
+               <QuickAction icon={<ICONS.Rewards className="w-5 h-5"/>} label="Redemptions" onClick={() => setView('withdrawals')} color="bg-emerald-600" />
             </div>
           </div>
         )}
@@ -137,7 +131,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         {view === 'bookings' && (
           <div className="p-4 space-y-4 animate-in fade-in duration-300">
              <div className="flex justify-between items-center px-2">
-                <h2 className="text-lg font-black text-slate-900 uppercase">Waitlist Review</h2>
+                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Waitlist Review</h2>
                 <span className="text-[10px] font-black text-white bg-amber-500 px-3 py-1 rounded-full uppercase tracking-tighter">New: {props.bookings.filter(b => b.status === 'waiting').length}</span>
              </div>
              {props.bookings.filter(b => b.status === 'waiting').length === 0 ? (
@@ -165,22 +159,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         {view === 'products' && (
           <div className="p-4 space-y-4 animate-in fade-in duration-300">
              <div className="flex justify-between items-center px-2">
-                <h2 className="text-lg font-black text-slate-900 uppercase">Catalog</h2>
+                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Catalog</h2>
                 <div className="flex gap-2">
                    <input type="file" accept=".csv" ref={fileInputRef} onChange={handleCSVUpload} className="hidden" />
-                   <button onClick={() => fileInputRef.current?.click()} className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase border border-slate-200">Bulk</button>
-                   <button onClick={() => setShowProductForm(true)} className="px-4 py-2 bg-[#005696] text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-blue-100">+ New</button>
+                   <button onClick={() => fileInputRef.current?.click()} className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase border border-slate-200">CSV</button>
+                   <button onClick={() => setShowProductForm(true)} className="px-4 py-2 bg-[#005696] text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-blue-100">+ Manual</button>
                 </div>
              </div>
              <div className="space-y-3">
                 {props.products.map(p => (
                    <div key={p.id} className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm flex justify-between items-center">
                       <div>
-                         <p className="font-black text-slate-900 text-sm">{p.product_name}</p>
-                         <p className="text-[10px] font-bold text-slate-400 uppercase">{p.brand}</p>
+                         <p className="font-black text-slate-900 text-sm leading-tight">{p.product_name}</p>
+                         <p className="text-[10px] font-bold text-slate-400 uppercase">Unit Price: ₹{p.base_price || 0}</p>
                       </div>
                       <div className="text-right">
-                         <p className="text-lg font-black text-[#005696]">{p.points_per_unit}<span className="text-[9px] opacity-40 ml-1">pts</span></p>
+                         <p className="text-lg font-black text-[#005696]">{p.points_per_unit}<span className="text-[9px] opacity-40 ml-1 uppercase">pts</span></p>
                          <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${p.active ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{p.active ? 'ACTIVE' : 'INACTIVE'}</span>
                       </div>
                    </div>
@@ -197,7 +191,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                    <div className="flex justify-between items-center">
                       <div>
                          <p className="text-xl font-black text-slate-900 tracking-tighter">₹{w.amount}</p>
-                         <p className="text-[10px] font-bold text-[#005696]">{w.upi_id}</p>
+                         <p className="text-[10px] font-bold text-[#005696] uppercase">{w.upi_id}</p>
                       </div>
                       <span className="text-[9px] font-black bg-slate-50 px-3 py-1.5 rounded-full uppercase tracking-widest">{w.points} Pts</span>
                    </div>
@@ -228,20 +222,55 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const target = e.target as any;
-                const { data, error } = await supabase.from('products').insert([{ 
+                const payload: any = { 
                   product_name: target.pname.value,
                   brand: 'CooperVision',
                   points_per_unit: parseInt(target.ppoints.value),
-                  active: true
-                }]).select();
-                if (!error) {
-                  props.setProducts(prev => [...prev, data[0]]);
+                  active: target.pactive.checked
+                };
+                
+                const price = parseInt(target.pprice.value);
+                if (!isNaN(price)) payload.base_price = price;
+
+                const { data, error } = await supabase.from('products').insert([payload]).select();
+                
+                if (error) {
+                  if (error.message.includes('base_price')) {
+                    const { base_price, ...rest } = payload;
+                    const { data: fbData, error: fbError } = await supabase.from('products').insert([rest]).select();
+                    if (!fbError && fbData) {
+                       props.setProducts(prev => [...prev, ...fbData]);
+                       setShowProductForm(false);
+                    } else {
+                       alert(fbError?.message || error.message);
+                    }
+                  } else {
+                    alert(error.message);
+                  }
+                } else if (data) {
+                  props.setProducts(prev => [...prev, ...data]);
                   setShowProductForm(false);
                 }
-              }} className="space-y-6">
-                 <input name="pname" required placeholder="Product Title (e.g. Biofinity)" className="w-full px-6 py-5 bg-slate-50 rounded-2xl font-bold border-2 border-slate-50 focus:border-[#005696] outline-none" />
-                 <input name="ppoints" type="number" required placeholder="Points per Unit" className="w-full px-6 py-5 bg-slate-50 rounded-2xl font-black border-2 border-slate-50 focus:border-[#005696] outline-none" />
-                 <button type="submit" className="w-full py-6 bg-[#005696] text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-blue-900/30">Save Product</button>
+              }} className="space-y-5">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">1. Product Title</label>
+                    <input name="pname" required placeholder="e.g. Biofinity (6 Lenses)" className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold border-2 border-slate-50 focus:border-[#005696] outline-none" />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">2. Price (₹)</label>
+                       <input name="pprice" type="number" required placeholder="2500" className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-black border-2 border-slate-50 focus:border-[#005696] outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">3. Points / Unit</label>
+                       <input name="ppoints" type="number" required placeholder="125" className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-black border-2 border-slate-50 focus:border-[#005696] outline-none" />
+                    </div>
+                 </div>
+                 <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                    <input name="pactive" type="checkbox" id="pactive" defaultChecked className="w-5 h-5 accent-[#005696] rounded-md cursor-pointer" />
+                    <label htmlFor="pactive" className="text-xs font-black text-slate-700 uppercase tracking-widest cursor-pointer">4. Available for Partners</label>
+                 </div>
+                 <button type="submit" className="w-full py-6 bg-[#005696] text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-blue-900/30 active:scale-95 transition-all">Save to Catalog</button>
               </form>
            </div>
         </div>

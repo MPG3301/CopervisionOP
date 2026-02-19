@@ -20,8 +20,7 @@ export interface Product {
   product_name: string;
   points_per_unit: number; 
   active: boolean;
-  base_price?: number;
-  stock_quantity?: number;
+  base_price: number; // Required for price tracking
 }
 
 export type BookingStatus = 'waiting' | 'approved' | 'rejected';

@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { User, Product, Booking } from '../types';
 import { supabase } from '../lib/supabase';
-// Import ICONS from constants to fix the missing name error
 import { ICONS } from '../constants';
 
 interface NewBookingProps {
@@ -17,8 +16,10 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedProduct = products.find(p => p.id === productId);
-  const unitPoints = selectedProduct ? Math.floor(selectedProduct.base_price * (selectedProduct.reward_percentage / 100)) : 0;
-  const calculatedPoints = unitPoints * quantity;
+  
+  // Ensure we are working with numbers to prevent NaN
+  const unitPoints = Number(selectedProduct?.points_per_unit || 0);
+  const calculatedPoints = unitPoints * Number(quantity || 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +32,7 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
       user_id: user.id,
       product_id: productId,
       product_name: selectedProduct!.product_name,
-      quantity,
+      quantity: Number(quantity),
       status: 'waiting',
       points_earned: calculatedPoints,
       optometrist_name: user.full_name,
@@ -53,7 +54,7 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
     <div className="p-6 space-y-8 animate-in fade-in duration-500">
       <header>
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">Order Entry</h2>
-        <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mt-1 italic">Waitlist Submission</p>
+        <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mt-1 italic">Submit to Waitlist</p>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -69,7 +70,7 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
               >
                 <option value="">Select Item...</option>
                 {products.filter(p => p.active).map(p => (
-                  <option key={p.id} value={p.id}>{p.product_name} ({p.reward_percentage}% Reward)</option>
+                  <option key={p.id} value={p.id}>{p.product_name} ({p.points_per_unit} pts/unit)</option>
                 ))}
               </select>
               <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
@@ -106,8 +107,10 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
               <ICONS.Rewards className="w-24 h-24 rotate-12" />
            </div>
            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Estimated Reward</p>
-           <h3 className="text-5xl font-black tracking-tighter">+{calculatedPoints} <span className="text-sm opacity-50">pts</span></h3>
-           <p className="text-[9px] font-bold opacity-40 mt-2">Credits after admin waitlist verification</p>
+           <h3 className="text-5xl font-black tracking-tighter">
+             +{isNaN(calculatedPoints) ? 0 : calculatedPoints} <span className="text-sm opacity-50 uppercase">pts</span>
+           </h3>
+           <p className="text-[9px] font-bold opacity-40 mt-2 uppercase tracking-tighter">Credits after admin verification</p>
         </div>
 
         <button 
