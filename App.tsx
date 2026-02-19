@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Product, Booking, Withdrawal } from './types';
-import { INITIAL_PRODUCTS, ICONS } from './constants';
+import { ICONS } from './constants';
 import { supabase } from './lib/supabase';
 import Dashboard from './views/Dashboard';
 import NewBooking from './views/NewBooking';
@@ -25,14 +25,25 @@ const App: React.FC = () => {
 
   const fetchData = useCallback(async (currentUser: User) => {
     try {
+      // Fetch Products
       const { data: prods } = await supabase.from('products').select('*').order('product_name');
       if (prods) setProducts(prods);
 
+      // Fetch Bookings with fallback for schema errors
       let bQuery = supabase.from('bookings').select('*');
       if (currentUser.role !== 'admin') bQuery = bQuery.eq('user_id', currentUser.id);
-      const { data: bks } = await bQuery.order('created_at', { ascending: false });
-      if (bks) setBookings(bks);
+      
+      const { data: bks, error: bError } = await bQuery.order('created_at', { ascending: false });
+      
+      if (bError && bError.message.includes('created_at')) {
+        // Fallback if column missing in cache
+        const { data: fallbackBks } = await bQuery;
+        if (fallbackBks) setBookings(fallbackBks);
+      } else if (bks) {
+        setBookings(bks);
+      }
 
+      // Fetch Withdrawals
       let wQuery = supabase.from('withdrawals').select('*');
       if (currentUser.role !== 'admin') wQuery = wQuery.eq('user_id', currentUser.id);
       const { data: wths } = await wQuery.order('created_at', { ascending: false });
@@ -67,7 +78,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Admin view: Full desktop layout
   if (user.role === 'admin') {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -81,7 +91,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Partner view: Centered app layout for PC, full screen for Mobile
   return (
     <div className="min-h-screen bg-slate-100 flex justify-center">
       <div className="w-full max-w-2xl bg-white min-h-screen shadow-2xl relative flex flex-col border-x border-slate-200">

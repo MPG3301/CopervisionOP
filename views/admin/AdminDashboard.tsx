@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User, Booking, Product, Withdrawal, BookingStatus } from '../../types';
 import { ICONS } from '../../constants';
 import { supabase } from '../../lib/supabase';
@@ -24,11 +24,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     const last7Days = [...Array(7)].map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      return d.toLocaleDateString();
+      return d.toLocaleDateString('en-GB'); // Standardize format
     }).reverse();
+
     return last7Days.map(date => ({
-      name: date.split('/')[0] + '/' + date.split('/')[1],
-      val: props.bookings.filter(b => b.status === 'approved' && new Date(b.created_at).toLocaleDateString() === date).length
+      name: date.substring(0, 5), // DD/MM
+      val: props.bookings.filter(b => {
+        if (!b.created_at) return false;
+        return b.status === 'approved' && new Date(b.created_at).toLocaleDateString('en-GB') === date;
+      }).length
     }));
   }, [props.bookings]);
 
@@ -46,24 +50,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     window.URL.revokeObjectURL(url);
   };
 
-  const uniquePartners = useMemo(() => {
-    const partnersMap = new Map();
-    props.bookings.forEach(b => {
-      if (!partnersMap.has(b.user_id)) {
-        partnersMap.set(b.user_id, {
-          user_id: b.user_id,
-          name: b.optometrist_name || 'Unknown',
-          total_orders: props.bookings.filter(ob => ob.user_id === b.user_id).length,
-          total_points: props.bookings.filter(ob => ob.user_id === b.user_id && ob.status === 'approved').reduce((s, ob) => s + ob.points_earned, 0)
-        });
-      }
-    });
-    return Array.from(partnersMap.values());
-  }, [props.bookings]);
-
   const handleUpdateStatus = async (id: string, status: BookingStatus) => {
     const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
-    if (!error) props.setBookings(prev => prev.map(b => b.id === id ? { ...b, status: status } : b));
+    if (!error) {
+      props.setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+    }
   };
 
   return (
@@ -112,10 +103,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                    <button onClick={() => downloadCSV(props.bookings, 'bookings_report')} className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2">
                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                      Bookings CSV
-                   </button>
-                   <button onClick={() => downloadCSV(uniquePartners, 'partners_report')} className="px-5 py-3 bg-[#005696] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-800 shadow-xl shadow-blue-900/10 transition-all flex items-center gap-2">
-                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                     Partners CSV
                    </button>
                 </div>
               </header>
@@ -241,7 +228,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                   props.setProducts(prev => [...prev, ...data]);
                   setShowProductForm(false);
                 } else {
-                  alert("Error adding product to database.");
+                  alert("Error adding product. Check console.");
                 }
               }} className="space-y-6">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

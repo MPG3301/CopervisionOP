@@ -39,7 +39,7 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
       if (billFile) {
         const fileExt = billFile.name.split('.').pop();
         const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-        const { data, error: uploadError } = await supabase.storage.from('bills').upload(fileName, billFile);
+        const { error: uploadError } = await supabase.storage.from('bills').upload(fileName, billFile);
         
         if (uploadError) throw uploadError;
         
@@ -47,12 +47,12 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
         billUrl = publicUrl.publicUrl;
       }
 
-      const booking: Partial<Booking> = {
-        id: `CV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      const bookingData: Partial<Booking> = {
+        id: `CV-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
         user_id: user.id,
         product_id: productId,
         product_name: selectedProduct!.product_name,
-        quantity: quantity,
+        quantity,
         status: 'waiting',
         points_earned: calculatedPoints,
         bill_image_url: billUrl,
@@ -60,10 +60,10 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
         created_at: new Date().toISOString()
       };
 
-      const { error: insertError } = await supabase.from('bookings').insert([booking]);
+      const { error: insertError } = await supabase.from('bookings').insert([bookingData]);
       if (insertError) throw insertError;
       
-      onBookingSubmit(booking as Booking);
+      onBookingSubmit(bookingData as Booking);
     } catch (err: any) {
       alert("Error submitting: " + err.message);
     } finally {
@@ -114,7 +114,7 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 </div>
                 <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest text-center px-4 leading-relaxed">
-                  {billFile ? billFile.name : 'Click to select slip / invoice'}
+                  {billFile ? billFile.name : 'Click to select slip or invoice'}
                 </span>
                 {billFile && <span className="text-[8px] font-black text-[#005696] uppercase mt-2">File Ready</span>}
               </div>
@@ -131,7 +131,7 @@ const NewBooking: React.FC<NewBookingProps> = ({ user, products, onBookingSubmit
           type="submit" disabled={isSubmitting}
           className={`w-full py-7 rounded-[30px] font-black text-xl text-white shadow-2xl transition-all active:scale-95 ${isSubmitting ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-900 shadow-slate-900/30'}`}
         >
-          {isSubmitting ? 'Syncing with Supabase...' : 'SUBMIT TO WAITLIST'}
+          {isSubmitting ? 'Syncing...' : 'SUBMIT TO WAITLIST'}
         </button>
       </form>
     </div>
