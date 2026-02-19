@@ -18,11 +18,13 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
     city: ''
   });
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMsg(null);
     setIsLoading(true);
     
     try {
@@ -30,19 +32,18 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-          }
-        }
       });
 
       if (authError) throw authError;
       
       const authUser = authData?.user;
-      if (!authUser) throw new Error("Could not create authentication user. Check if email is already registered.");
+      
+      // If email confirmation is ON in Supabase, we might not get a session immediately
+      if (!authUser) {
+        throw new Error("Registration started, but no user was returned. Please check if the email is already in use.");
+      }
 
-      // 2. Prepare Profile Data
+      // 2. Prepare Profile Data using the exact ID from Auth
       const profileData = {
         id: authUser.id,
         optometrist_id: `CV-OPT-${Math.floor(Math.random() * 90000 + 10000)}`,
@@ -62,19 +63,37 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ onRegister, onSwitc
       
       if (profileError) {
         console.error("Profile creation error:", profileError);
-        // If profile creation fails, we should notify the user. 
-        // Note: The Auth user is created, but the profile isn't.
-        throw new Error(`Profile creation failed: ${profileError.message}`);
+        throw new Error(`Auth account created, but profile setup failed: ${profileError.message}`);
       }
 
-      onRegister(profileData as any);
+      // If we have a session, log them in. If not, they need to confirm email.
+      if (authData.session) {
+        onRegister(profileData as any);
+      } else {
+        setSuccessMsg("Account created! Please check your email for a confirmation link before logging in.");
+        setIsLoading(false);
+      }
     } catch (err: any) {
       console.error("Registration Exception:", err);
       setError(err.message || "An unexpected error occurred during registration.");
-    } finally {
       setIsLoading(false);
     }
   };
+
+  if (successMsg) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6 flex items-center justify-center">
+        <div className="w-full max-w-md bg-white rounded-[40px] p-10 text-center shadow-xl border border-slate-100">
+           <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>
+           </div>
+           <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Verify Email</h2>
+           <p className="text-slate-500 font-medium mb-8 leading-relaxed">{successMsg}</p>
+           <button onClick={onSwitchToLogin} className="w-full py-4 bg-[#005696] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-900/20">Back to Login</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 flex flex-col justify-center items-center">
