@@ -67,7 +67,7 @@ const App: React.FC = () => {
     );
   }
 
-  // Admin view is always expansive
+  // Admin view: Full desktop layout
   if (user.role === 'admin') {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -81,10 +81,10 @@ const App: React.FC = () => {
     );
   }
 
-  // Partner view: App-like on mobile, centered on PC
+  // Partner view: Centered app layout for PC, full screen for Mobile
   return (
     <div className="min-h-screen bg-slate-100 flex justify-center">
-      <div className="w-full max-w-md bg-white min-h-screen shadow-2xl relative flex flex-col border-x border-slate-200">
+      <div className="w-full max-w-2xl bg-white min-h-screen shadow-2xl relative flex flex-col border-x border-slate-200">
         <header className="px-6 py-5 bg-white border-b flex justify-between items-center sticky top-0 z-20">
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-[#005696] uppercase tracking-[0.2em] mb-1 leading-none">CooperVision Partner</p>
@@ -95,17 +95,17 @@ const App: React.FC = () => {
           </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto pb-28">
+        <main className="flex-1 overflow-y-auto pb-32">
           {activeTab === 'dashboard' && <Dashboard user={user} bookings={bookings} />}
           {activeTab === 'new-booking' && <NewBooking user={user} products={products} onBookingSubmit={() => { fetchData(user); setActiveTab('history'); }} />}
           {activeTab === 'history' && <MyBookings bookings={bookings} onUpdate={() => fetchData(user)} />}
           {activeTab === 'rewards' && <Rewards user={user} bookings={bookings} withdrawals={withdrawals} onWithdraw={() => fetchData(user)} />}
         </main>
 
-        <nav className="fixed bottom-0 w-full max-w-md bg-white/95 backdrop-blur-xl border-t flex justify-around p-4 pb-6 z-30 shadow-[0_-8px_30px_rgba(0,0,0,0.06)]">
+        <nav className="fixed bottom-0 w-full max-w-2xl bg-white/95 backdrop-blur-xl border-t flex justify-around p-4 pb-8 z-30 shadow-[0_-8px_30px_rgba(0,0,0,0.06)]">
           <NavItem active={activeTab === 'dashboard'} icon={<ICONS.Dashboard className="w-6 h-6" />} label="Home" onClick={() => setActiveTab('dashboard')} />
           <NavItem active={activeTab === 'new-booking'} icon={<ICONS.Booking className="w-6 h-6" />} label="New Order" onClick={() => setActiveTab('new-booking')} />
-          <NavItem active={activeTab === 'history'} icon={<ICONS.History className="w-6 h-6" />} label="Waitlist" onClick={() => setActiveTab('history')} />
+          <NavItem active={activeTab === 'history'} icon={<ICONS.History className="w-6 h-6" />} label="Status" onClick={() => setActiveTab('history')} />
           <NavItem active={activeTab === 'rewards'} icon={<ICONS.Rewards className="w-6 h-6" />} label="Wallet" onClick={() => setActiveTab('rewards')} />
         </nav>
       </div>
@@ -114,7 +114,7 @@ const App: React.FC = () => {
 };
 
 const NavItem = ({ active, icon, label, onClick }: any) => (
-  <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all ${active ? 'text-[#005696] scale-105' : 'text-slate-300'}`}>
+  <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all ${active ? 'text-[#005696] scale-105' : 'text-slate-300 hover:text-slate-500'}`}>
     {icon} <span className="text-[10px] font-black uppercase tracking-widest leading-none">{label}</span>
   </button>
 );

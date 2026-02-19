@@ -18,6 +18,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSwitchToRegister }) =>
   const handleAdminQuickLogin = () => {
     onLogin({
       id: 'admin-1',
+      // Fix: Added missing required property 'optometrist_id' for the User interface
+      optometrist_id: 'CV-OPT-0000',
       full_name: 'Super Admin',
       email: 'admin@coopervision.com',
       phone: '9999999999',
