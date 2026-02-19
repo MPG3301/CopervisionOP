@@ -29,25 +29,23 @@ const App: React.FC = () => {
       const { data: prods } = await supabase.from('products').select('*').order('product_name');
       if (prods) setProducts(prods);
 
-      // Fetch Bookings - Now that schema is standard, we don't need the fallback logic
+      // Fetch Bookings
       let bQuery = supabase.from('bookings').select('*');
       if (currentUser.role !== 'admin') {
         bQuery = bQuery.eq('user_id', currentUser.id);
       }
-      
-      const { data: bks, error: bError } = await bQuery.order('created_at', { ascending: false });
+      const { data: bks } = await bQuery.order('created_at', { ascending: false });
       if (bks) setBookings(bks);
-      if (bError) console.error("Bookings Fetch Error:", bError.message);
 
-      // Fetch Withdrawals
-      let wQuery = supabase.from('withdrawals').select('*');
+      // Fetch Withdrawals (Admin needs profile details)
+      let wQuery = supabase.from('withdrawals').select('*, profiles(*)');
       if (currentUser.role !== 'admin') {
-        wQuery = wQuery.eq('user_id', currentUser.id);
+        wQuery = supabase.from('withdrawals').select('*').eq('user_id', currentUser.id);
       }
       const { data: wths } = await wQuery.order('created_at', { ascending: false });
-      if (wths) setWithdrawals(wths);
+      if (wths) setWithdrawals(wths as any);
     } catch (err) {
-      console.error("Critical Sync Error:", err);
+      console.error("Sync Error:", err);
     }
   }, []);
 
@@ -56,8 +54,7 @@ const App: React.FC = () => {
       fetchData(user);
       localStorage.setItem('cv_user_session', JSON.stringify(user));
       
-      // Realtime subscription for instant updates
-      const channel = supabase.channel('schema-db-changes')
+      const channel = supabase.channel('schema-updates')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => fetchData(user))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawals' }, () => fetchData(user))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData(user))

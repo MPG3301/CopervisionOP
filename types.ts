@@ -48,4 +48,5 @@ export interface Withdrawal {
   upi_id: string;
   status: WithdrawalStatus;
   created_at: string;
+  profiles?: User; // Joined user data for admin
 }

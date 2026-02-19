@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { User, Booking, Withdrawal } from '../types';
 import { REWARD_CONVERSION_RATE, MIN_WITHDRAWAL_POINTS } from '../constants';
+import { supabase } from '../lib/supabase';
 
 interface RewardsProps {
   user: User;
@@ -23,7 +24,7 @@ const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdr
       .filter(w => w.user_id === user.id && w.status !== 'rejected')
       .reduce((sum, w) => sum + w.points, 0);
       
-    const available = totalEarned - totalRedeemed;
+    const available = Math.max(0, totalEarned - totalRedeemed);
     
     return {
       earned: totalEarned,
@@ -33,36 +34,42 @@ const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdr
     };
   }, [bookings, withdrawals, user.id]);
 
-  const handleRedeem = (e: React.FormEvent) => {
+  const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (stats.available < MIN_WITHDRAWAL_POINTS) {
-      return alert(`Threshold not met. You need at least ${MIN_WITHDRAWAL_POINTS} points (₹${MIN_WITHDRAWAL_POINTS / REWARD_CONVERSION_RATE}) to redeem.`);
+      return alert(`Threshold not met. Min: ${MIN_WITHDRAWAL_POINTS} points.`);
     }
-    if (!upiId.includes('@')) return alert('Invalid UPI ID Format (e.g. name@okbank)');
+    if (!upiId.includes('@')) return alert('Invalid UPI ID Format');
 
     setIsProcessing(true);
-    setTimeout(() => {
-      const newWithdrawal: Withdrawal = {
-        id: `WTH-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+    try {
+      const withdrawalData = {
+        id: `WTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
         user_id: user.id,
         points: stats.available,
         amount: stats.amount,
         upi_id: upiId,
-        status: 'pending',
-        created_at: new Date().toISOString()
+        status: 'pending'
       };
-      onWithdraw(newWithdrawal);
+
+      const { error } = await supabase.from('withdrawals').insert([withdrawalData]);
+      if (error) throw error;
+
+      onWithdraw(withdrawalData as any);
       setUpiId('');
+      alert('Withdrawal request raised successfully!');
+    } catch (err: any) {
+      alert("Withdrawal failed: " + err.message);
+    } finally {
       setIsProcessing(false);
-      alert('Withdrawal request queued! Payouts are usually processed within 24 hours.');
-    }, 1500);
+    }
   };
 
   return (
     <div className="p-6 space-y-8 animate-in fade-in duration-500">
       <div className="text-center">
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">Wallet Hub</h2>
-        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Cash out your rewards</p>
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Earned points to cash payouts</p>
       </div>
 
       <div className="bg-white rounded-[45px] p-10 border border-slate-100 shadow-[0_15px_30px_rgba(0,0,0,0.03)] flex flex-col items-center text-center relative overflow-hidden group">
@@ -90,13 +97,13 @@ const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdr
           disabled={stats.available < MIN_WITHDRAWAL_POINTS || isProcessing}
           className={`w-full py-6 rounded-3xl font-black text-lg text-white shadow-2xl transition-all active:scale-95 ${stats.available < MIN_WITHDRAWAL_POINTS ? 'bg-slate-300 shadow-none' : 'bg-slate-900 shadow-slate-900/30'}`}
         >
-          {isProcessing ? 'Verifying Request...' : `Withdraw ₹${stats.amount}`}
+          {isProcessing ? 'Verifying...' : `Withdraw ₹${stats.amount}`}
         </button>
         {stats.available < MIN_WITHDRAWAL_POINTS && (
           <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3">
              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
              <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest">
-                Min. Redemption is {MIN_WITHDRAWAL_POINTS} points (₹500)
+                Min. Withdrawal is {MIN_WITHDRAWAL_POINTS} points (₹500)
              </p>
           </div>
         )}
@@ -104,18 +111,19 @@ const Rewards: React.FC<RewardsProps> = ({ user, bookings, withdrawals, onWithdr
 
       <div className="space-y-4 pt-6 border-t border-slate-50">
         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Payout History</h4>
-        {withdrawals.filter(w => w.user_id === user.id).length === 0 ? (
-          <div className="py-12 text-center text-slate-300 font-bold italic text-xs">No transactions recorded.</div>
+        {withdrawals.length === 0 ? (
+          <div className="py-12 text-center text-slate-300 font-bold italic text-xs uppercase tracking-widest">No history found</div>
         ) : (
-          withdrawals.filter(w => w.user_id === user.id).map(w => (
+          withdrawals.map(w => (
             <div key={w.id} className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex justify-between items-center group">
               <div>
                 <p className="text-base font-black text-slate-900 leading-none">₹{w.amount}</p>
                 <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">{w.upi_id}</p>
+                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-1">ID: {w.id}</p>
               </div>
               <div className="text-right">
-                <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-xl ${w.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                  {w.status}
+                <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border ${w.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                   {w.status === 'approved' ? 'PAID' : 'PENDING'}
                 </span>
                 <p className="text-[9px] text-slate-300 mt-2 font-bold">{new Date(w.created_at).toLocaleDateString()}</p>
               </div>
